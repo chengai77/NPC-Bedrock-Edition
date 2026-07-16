@@ -1,0 +1,9 @@
+{
+  "texture_name": "atlas.items",
+  "resource_pack_name": "customnpc",
+  "texture_data": {
+    "customnpc:npc_spawn_egg": {
+      "textures": "textures/items/npc_spawn_egg"
+    }
+  }
+}

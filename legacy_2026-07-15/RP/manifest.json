@@ -1,0 +1,35 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "自定义NPC资源包",
+    "description": "自定义NPC资源包 - 作者: 承挨",
+    "uuid": "dc139b08-b19d-4c8a-894c-59be26ae7110",
+    "version": [
+      1,
+      0,
+      5
+    ],
+    "min_engine_version": [
+      1,
+      26,
+      10
+    ]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "ced3a66a-9904-4403-a16f-16ebe518258e",
+      "version": [
+        1,
+        0,
+        5
+      ]
+    }
+  ],
+  "metadata": {
+    "authors": [
+      "承挨"
+    ],
+    "url": ""
+  }
+}

@@ -1,0 +1,106 @@
+{
+  "format_version": "1.26.10",
+  "minecraft:entity": {
+    "description": {
+      "identifier": "customnpc:npc",
+      "is_spawnable": true,
+      "is_summonable": true,
+      "is_experimental": false,
+      "properties": {
+        "customnpc:skin_id": {
+          "type": "int",
+          "range": [1, 100],
+          "default": 1,
+          "client_sync": true
+        },
+        "customnpc:arm_model": {
+          "type": "int",
+          "range": [0, 1],
+          "default": 0,
+          "client_sync": true
+        }
+      }
+    },
+    "component_groups": {
+      "customnpc:ai_enabled": {
+        "minecraft:movement": { "value": 0.25 },
+        "minecraft:navigation.walk": {
+          "can_path_over_water": true,
+          "avoid_water": true,
+          "avoid_damage_blocks": true
+        },
+        "minecraft:movement.basic": {},
+        "minecraft:jump.static": {},
+        "minecraft:can_climb": {},
+        "minecraft:behavior.random_stroll": {
+          "priority": 6,
+          "speed_multiplier": 1.0,
+          "xz_dist": 6,
+          "y_dist": 2
+        },
+        "minecraft:behavior.random_look_around": {
+          "priority": 8
+        },
+        "minecraft:behavior.look_at_player": {
+          "priority": 7,
+          "look_distance": 8.0
+        },
+        "minecraft:behavior.avoid_mob_type": {
+          "priority": 5,
+          "entity_types": [
+            { "filters": { "test": "is_family", "subject": "other", "value": "monster" }, "max_dist": 8, "walk_speed_multiplier": 1.2, "sprint_speed_multiplier": 1.5 }
+          ]
+        }
+      },
+      "customnpc:ai_disabled": {
+        "minecraft:movement": { "value": 0.0 },
+        "minecraft:navigation.walk": {},
+        "minecraft:movement.basic": {}
+      }
+    },
+    "components": {
+      "minecraft:type_family": {
+        "family": ["customnpc", "npc", "mob"]
+      },
+      "minecraft:health": {
+        "value": 20,
+        "max": 20
+      },
+      "minecraft:physics": {
+        "has_gravity": true,
+        "has_collision": true
+      },
+      "minecraft:collision_box": {
+        "width": 0.6,
+        "height": 1.8
+      },
+      "minecraft:knockback_resistance": {
+        "value": 1.0,
+        "max": 1.0
+      },
+      "minecraft:interact": {
+        "interactions": [
+          {
+            "interact_text": "action.interact.talk",
+            "use_item": false,
+            "swing": false
+          }
+        ]
+      },
+      "minecraft:persistent": {}
+    },
+    "events": {
+      "customnpc:enable_ai": {
+        "add": { "component_groups": ["customnpc:ai_enabled"] },
+        "remove": { "component_groups": ["customnpc:ai_disabled"] }
+      },
+      "customnpc:disable_ai": {
+        "add": { "component_groups": ["customnpc:ai_disabled"] },
+        "remove": { "component_groups": ["customnpc:ai_enabled"] }
+      },
+      "minecraft:entity_spawned": {
+        "add": { "component_groups": ["customnpc:ai_disabled"] }
+      }
+    }
+  }
+}

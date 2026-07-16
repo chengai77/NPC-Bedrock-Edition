@@ -1,0 +1,143 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "customnpc:npc",
+      "materials": {
+        "default": "entity_alphatest"
+      },
+      "textures": {
+        "default": "textures/entity/npc_skins/npc_1",
+        "skin_1": "textures/entity/npc_skins/npc_1",
+        "skin_2": "textures/entity/npc_skins/npc_2",
+        "skin_3": "textures/entity/npc_skins/npc_3",
+        "skin_4": "textures/entity/npc_skins/npc_4",
+        "skin_5": "textures/entity/npc_skins/npc_5",
+        "skin_6": "textures/entity/npc_skins/npc_6",
+        "skin_7": "textures/entity/npc_skins/npc_7",
+        "skin_8": "textures/entity/npc_skins/npc_8",
+        "skin_9": "textures/entity/npc_skins/npc_9",
+        "skin_10": "textures/entity/npc_skins/npc_10",
+        "skin_11": "textures/entity/npc_skins/npc_11",
+        "skin_12": "textures/entity/npc_skins/npc_12",
+        "skin_13": "textures/entity/npc_skins/npc_13",
+        "skin_14": "textures/entity/npc_skins/npc_14",
+        "skin_15": "textures/entity/npc_skins/npc_15",
+        "skin_16": "textures/entity/npc_skins/npc_16",
+        "skin_17": "textures/entity/npc_skins/npc_17",
+        "skin_18": "textures/entity/npc_skins/npc_18",
+        "skin_19": "textures/entity/npc_skins/npc_19",
+        "skin_20": "textures/entity/npc_skins/npc_20",
+        "skin_21": "textures/entity/npc_skins/npc_21",
+        "skin_22": "textures/entity/npc_skins/npc_22",
+        "skin_23": "textures/entity/npc_skins/npc_23",
+        "skin_24": "textures/entity/npc_skins/npc_24",
+        "skin_25": "textures/entity/npc_skins/npc_25",
+        "skin_26": "textures/entity/npc_skins/npc_26",
+        "skin_27": "textures/entity/npc_skins/npc_27",
+        "skin_28": "textures/entity/npc_skins/npc_28",
+        "skin_29": "textures/entity/npc_skins/npc_29",
+        "skin_30": "textures/entity/npc_skins/npc_30",
+        "skin_31": "textures/entity/npc_skins/npc_31",
+        "skin_32": "textures/entity/npc_skins/npc_32",
+        "skin_33": "textures/entity/npc_skins/npc_33",
+        "skin_34": "textures/entity/npc_skins/npc_34",
+        "skin_35": "textures/entity/npc_skins/npc_35",
+        "skin_36": "textures/entity/npc_skins/npc_36",
+        "skin_37": "textures/entity/npc_skins/npc_37",
+        "skin_38": "textures/entity/npc_skins/npc_38",
+        "skin_39": "textures/entity/npc_skins/npc_39",
+        "skin_40": "textures/entity/npc_skins/npc_40",
+        "skin_41": "textures/entity/npc_skins/npc_41",
+        "skin_42": "textures/entity/npc_skins/npc_42",
+        "skin_43": "textures/entity/npc_skins/npc_43",
+        "skin_44": "textures/entity/npc_skins/npc_44",
+        "skin_45": "textures/entity/npc_skins/npc_45",
+        "skin_46": "textures/entity/npc_skins/npc_46",
+        "skin_47": "textures/entity/npc_skins/npc_47",
+        "skin_48": "textures/entity/npc_skins/npc_48",
+        "skin_49": "textures/entity/npc_skins/npc_49",
+        "skin_50": "textures/entity/npc_skins/npc_50",
+        "skin_51": "textures/entity/npc_skins/npc_51",
+        "skin_52": "textures/entity/npc_skins/npc_52",
+        "skin_53": "textures/entity/npc_skins/npc_53",
+        "skin_54": "textures/entity/npc_skins/npc_54",
+        "skin_55": "textures/entity/npc_skins/npc_55",
+        "skin_56": "textures/entity/npc_skins/npc_56",
+        "skin_57": "textures/entity/npc_skins/npc_57",
+        "skin_58": "textures/entity/npc_skins/npc_58",
+        "skin_59": "textures/entity/npc_skins/npc_59",
+        "skin_60": "textures/entity/npc_skins/npc_60",
+        "skin_61": "textures/entity/npc_skins/npc_61",
+        "skin_62": "textures/entity/npc_skins/npc_62",
+        "skin_63": "textures/entity/npc_skins/npc_63",
+        "skin_64": "textures/entity/npc_skins/npc_64",
+        "skin_65": "textures/entity/npc_skins/npc_65",
+        "skin_66": "textures/entity/npc_skins/npc_66",
+        "skin_67": "textures/entity/npc_skins/npc_67",
+        "skin_68": "textures/entity/npc_skins/npc_68",
+        "skin_69": "textures/entity/npc_skins/npc_69",
+        "skin_70": "textures/entity/npc_skins/npc_70",
+        "skin_71": "textures/entity/npc_skins/npc_71",
+        "skin_72": "textures/entity/npc_skins/npc_72",
+        "skin_73": "textures/entity/npc_skins/npc_73",
+        "skin_74": "textures/entity/npc_skins/npc_74",
+        "skin_75": "textures/entity/npc_skins/npc_75",
+        "skin_76": "textures/entity/npc_skins/npc_76",
+        "skin_77": "textures/entity/npc_skins/npc_77",
+        "skin_78": "textures/entity/npc_skins/npc_78",
+        "skin_79": "textures/entity/npc_skins/npc_79",
+        "skin_80": "textures/entity/npc_skins/npc_80",
+        "skin_81": "textures/entity/npc_skins/npc_81",
+        "skin_82": "textures/entity/npc_skins/npc_82",
+        "skin_83": "textures/entity/npc_skins/npc_83",
+        "skin_84": "textures/entity/npc_skins/npc_84",
+        "skin_85": "textures/entity/npc_skins/npc_85",
+        "skin_86": "textures/entity/npc_skins/npc_86",
+        "skin_87": "textures/entity/npc_skins/npc_87",
+        "skin_88": "textures/entity/npc_skins/npc_88",
+        "skin_89": "textures/entity/npc_skins/npc_89",
+        "skin_90": "textures/entity/npc_skins/npc_90",
+        "skin_91": "textures/entity/npc_skins/npc_91",
+        "skin_92": "textures/entity/npc_skins/npc_92",
+        "skin_93": "textures/entity/npc_skins/npc_93",
+        "skin_94": "textures/entity/npc_skins/npc_94",
+        "skin_95": "textures/entity/npc_skins/npc_95",
+        "skin_96": "textures/entity/npc_skins/npc_96",
+        "skin_97": "textures/entity/npc_skins/npc_97",
+        "skin_98": "textures/entity/npc_skins/npc_98",
+        "skin_99": "textures/entity/npc_skins/npc_99",
+        "skin_100": "textures/entity/npc_skins/npc_100"
+      },
+      "geometry": {
+        "classic": "geometry.npc.classic",
+        "slim": "geometry.npc.slim"
+      },
+      "render_controllers": [
+        "controller.render.customnpc.npc"
+      ],
+      "animations": {
+        "idle": "animation.npc.idle",
+        "walk": "animation.npc.walk"
+      },
+      "scripts": {
+        "pre_animation": [
+          "v.skin_id = math.clamp(q.property('customnpc:skin_id'), 1, 100);",
+          "v.arm_model = q.property('customnpc:arm_model');"
+        ],
+        "animate": [
+          {
+            "idle": "1.0"
+          },
+          {
+            "walk": "q.modified_move_speed > 0.01"
+          }
+        ]
+      },
+      "spawn_egg": {
+        "base_color": "#db7500",
+        "overlay_color": "#242222"
+      }
+    }
+  }
+}
