@@ -79,14 +79,8 @@
 │   │   ├── items/npc_spawn_egg.png
 │   │   └── item_texture.json
 │   └── texts/
-├── tools/                           构建与校验脚本
-│   ├── build_mcaddon.py             打包 .mcaddon
-│   ├── detect_skin_models.py        皮肤臂型检测
-│   ├── make_64x64_placeholders.py   占位贴图生成
-│   ├── validate_pack.py             附加包校验
-│   └── skin_overrides.json
 ├── package.json  tsconfig.json
-├── 版权声明
+├── 版权声明.txt
 └── README.md
 ```
 
@@ -119,9 +113,8 @@
 
 1. 需在世界选项中启用 **Beta API / 实验功能**，否则脚本无法加载
 2. 皮肤文件需为 **64×64** PNG
-3. NPC 执行的指令受玩家自身权限限制
-4. 单世界 NPC 数量过多会增加定时巡检开销，建议合理控制
-5. AI 开启后 NPC 会自主游荡，避免在狭小空间内设置过大游荡半径
+3. 单世界 NPC 数量过多会增加定时巡检开销，建议合理控制
+4. AI 开启后 NPC 会自主游荡，避免在狭小空间内设置过大游荡半径
 
 ## 版权声明
 
