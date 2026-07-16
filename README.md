@@ -85,18 +85,15 @@
 │   ├── make_64x64_placeholders.py   占位贴图生成
 │   ├── validate_pack.py             附加包校验
 │   └── skin_overrides.json
-├── docs/                            开发与整改文档
-├── legacy_2026-07-15/               历史版本归档
-├── probe_beta/  probe_stable/       脚本加载探针包
 ├── package.json  tsconfig.json
-├── 自定义npc.mcaddon                 发布产物
+├── 版权声明
 └── README.md
 ```
 
 ## 安装与使用
 
 ### 安装
-1. 下载 `自定义npc.mcaddon`
+1. 执行 `python tools/build_mcaddon.py` 生成 `自定义npc.mcaddon`
 2. 双击导入 Minecraft（基岩版 1.26.33 及以上）
 3. 在世界设置中启用「自定义NPC」行为包与资源包，并开启「Beta API」实验功能
 

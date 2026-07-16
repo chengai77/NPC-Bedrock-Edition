@@ -6,6 +6,10 @@ build/
 dist/
 out/
 
+# 开发工具与构建产物（仅本地使用，不推送）
+tools/
+*.mcaddon
+
 # IDE
 .vscode/
 .idea/
