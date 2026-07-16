@@ -87,9 +87,12 @@
 ## 安装与使用
 
 ### 安装
-1. 执行 `python tools/build_mcaddon.py` 生成 `自定义npc.mcaddon`
-2. 双击导入 Minecraft（基岩版 1.26.33 及以上）
-3. 在世界设置中启用「自定义NPC」行为包与资源包，并开启「Beta API」实验功能
+1. 选中 `BP/` 与 `RP/` 两个文件夹，右键压缩为 zip（如 `自定义npc.zip`）
+2. 将后缀 `.zip` 重命名为 `.mcaddon`，得到 `自定义npc.mcaddon`
+3. 双击 `自定义npc.mcaddon` 导入 Minecraft（基岩版 1.26.33 及以上）
+4. 在世界设置中启用「自定义NPC」行为包与资源包，并开启「Beta API」实验功能
+
+> `.mcaddon` 本质是 zip 压缩包，要求 `BP/` 与 `RP/` 直接位于压缩包根目录，不要在外层再套一层文件夹，否则游戏无法识别。
 
 ### 使用
 - **生成 NPC**：创造模式取「NPC 生成蛋」右键地面
