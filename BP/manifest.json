@@ -4,20 +4,20 @@
     "name": "自定义NPC",
     "description": "自定义NPC行为包 - 作者: 承挨",
     "uuid": "f127bcc0-501f-43c7-9690-60a3c4233666",
-    "version": [1, 1, 20],
+    "version": [1, 1, 21],
     "min_engine_version": [1, 26, 33]
   },
   "modules": [
     {
       "type": "data",
       "uuid": "4c42ff9d-ee0e-40f5-8c8a-526317e41108",
-      "version": [1, 1, 20]
+      "version": [1, 1, 21]
     },
     {
       "type": "script",
       "language": "javascript",
       "uuid": "6b07eb93-cd01-4117-b980-925c3c4ac9d2",
-      "version": [1, 1, 20],
+      "version": [1, 1, 21],
       "entry": "scripts/main.js"
     }
   ],
@@ -32,7 +32,7 @@
     },
     {
       "uuid": "dc139b08-b19d-4c8a-894c-59be26ae7110",
-      "version": [1, 1, 20]
+      "version": [1, 1, 21]
     }
   ],
   "metadata": {

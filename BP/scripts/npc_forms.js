@@ -512,7 +512,7 @@ function removeInventoryItems(inventory, itemId, amount) {
     return remaining === 0;
 }
 
-async function runPresetTrade(player, payload) {
+async function runPresetTrade(player, npc, payload) {
     const trade = decodeTrade(payload);
     if (!trade) {
         player.sendMessage("[NPC] 预设交易配置已损坏。");
@@ -528,7 +528,7 @@ async function runPresetTrade(player, payload) {
         }
         for (const item of trade.costs) removeInventoryItems(inventory, item.itemId, item.amount);
         for (const item of trade.rewards) {
-            player.dimension.runCommand(`give "${player.name}" ${item.itemId} ${item.amount}`);
+            npc.dimension.runCommand(`give "${player.name}" ${item.itemId} ${item.amount}`);
         }
         player.sendMessage("交易完成。");
         return true;
@@ -542,7 +542,7 @@ async function runPresetTrade(player, payload) {
 
 async function runNpcCommand(player, npc, command) {
     if (command.startsWith(TRADE_PREFIX)) {
-        return runPresetTrade(player, command.slice(TRADE_PREFIX.length));
+        return runPresetTrade(player, npc, command.slice(TRADE_PREFIX.length));
     }
     const check = validateCommand(command);
     if (!check.ok) {
@@ -555,7 +555,7 @@ async function runNpcCommand(player, npc, command) {
             world.sendMessage(commandText.slice(4));
             return true;
         }
-        player.dimension.runCommand(commandText);
+        npc.dimension.runCommand(commandText);
         return true;
     } catch (error) {
         const msg = String(error?.message ?? error);
