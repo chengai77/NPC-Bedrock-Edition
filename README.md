@@ -33,7 +33,6 @@
 ### 皮肤系统
 - 共 **100** 套预设皮肤，存放于 `RP/textures/entity/npc_skins/npc_1.png` ~ `npc_100.png`
 - 双几何模型：`npc_classic.geo.json`（粗臂）、`npc_slim.geo.json`（细臂）
-- 由 `tools/detect_skin_models.py` 自动检测臂型并写入 `skin_registry.js`
 - 特殊槽位：
   - `npc_1` → 名称固定为「作者」，锁定不可改
   - `npc_2` → 默认名称「星野」，可更改
