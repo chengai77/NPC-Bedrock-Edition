@@ -135,8 +135,7 @@
         ]
       },
       "spawn_egg": {
-        "base_color": "#db7500",
-        "overlay_color": "#242222"
+        "texture": "customnpc:npc_spawn_egg_v3"
       }
     }
   }

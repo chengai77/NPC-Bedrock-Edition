@@ -56,6 +56,18 @@ function commandChoices(data) {
     return ["不执行指令", ...data.commands.map((entry, index) => `${index + 1}. ${entry.description}`)];
 }
 
+function getCommandIndex(data, button) {
+    if (!button.commandId) return button.command ? data.commands.findIndex((entry) => entry.command === button.command) : -1;
+    return data.commands.findIndex((entry) => entry.id === button.commandId);
+}
+
+function nextCommandId(commands) {
+    let number = 1;
+    const ids = new Set(commands.map((command) => command.id));
+    while (ids.has(`command_${number}`)) number++;
+    return `command_${number}`;
+}
+
 function linkChoices(data) {
     return ["无（仅执行命令）", "关闭菜单（不执行指令）", ...data.dialogues.map((dialogue) => `节点 ${dialogue.id}: ${dialogue.text.slice(0, 16)}`)];
 }
@@ -246,7 +258,7 @@ async function editDialogueButton(player, npc, dialogueId, buttonIndex) {
     const links = linkChoices(data);
     const commands = commandChoices(data);
     const linkIndex = button.closeMenu ? 1 : (button.nextId === null ? 0 : Math.max(0, data.dialogues.findIndex((item) => item.id === button.nextId) + 2));
-    const commandIndex = button.command ? Math.max(0, data.commands.findIndex((item) => item.command === button.command) + 1) : 0;
+    const commandIndex = Math.max(0, getCommandIndex(data, button) + 1);
     const form = new ModalFormData()
         .title(`编辑按钮 ${buttonIndex + 1}`)
         .textField(`按钮文字(最多${LIMITS.buttonTextLength}字)`, "输入按钮文字", { defaultValue: button.text })
@@ -263,7 +275,9 @@ async function editDialogueButton(player, npc, dialogueId, buttonIndex) {
         button.text = text || "继续";
         button.nextId = selectedLink > 1 ? data.dialogues[selectedLink - 2].id : null;
         button.closeMenu = closeMenu;
-        button.command = closeMenu ? "" : (selectedCommand > 0 ? data.commands[selectedCommand - 1].command : "");
+        const selectedCommandEntry = selectedCommand > 0 ? data.commands[selectedCommand - 1] : null;
+        button.command = closeMenu || !selectedCommandEntry ? "" : selectedCommandEntry.command;
+        button.commandId = closeMenu || !selectedCommandEntry ? "" : selectedCommandEntry.id;
         button.closeAfterCommand = closeMenu ? false : closeAfterCommand;
         saveNpc(npc, data);
     }
@@ -310,7 +324,10 @@ async function addCommand(player, npc, data) {
     if (!check.ok) {
         player.sendMessage(`指令被拒绝: ${check.reason}`);
     } else {
-        saveNpc(npc, { ...data, commands: [...data.commands, { command, description }] });
+        saveNpc(npc, {
+            ...data,
+            commands: [...data.commands, { id: nextCommandId(data.commands), command, description }]
+        });
     }
     openLater(() => editCommands(player, npc));
 }
@@ -373,8 +390,9 @@ async function editPresetTrade(player, npc, data, commandIndex) {
     } else {
         const command = `${TRADE_PREFIX}${encodeTrade(costs)}|${encodeTrade(rewards)}`;
         const commands = [...data.commands];
-        if (commandIndex >= 0) commands[commandIndex] = { command, description };
-        else commands.push({ command, description });
+        const entry = { id: existing?.id ?? nextCommandId(commands), command, description };
+        if (commandIndex >= 0) commands[commandIndex] = entry;
+        else commands.push(entry);
         saveNpc(npc, { ...data, commands });
     }
     openLater(() => editCommands(player, npc));
@@ -387,10 +405,12 @@ async function deleteCommand(player, npc, data) {
     form.button("返回");
     const result = await form.show(player).catch((error) => { handleFormError(player, error); return null; });
     if (result && !result.canceled && result.selection < data.commands.length) {
-        const command = data.commands[result.selection].command;
+        const commandId = data.commands[result.selection].id;
         const dialogues = data.dialogues.map((dialogue) => ({
             ...dialogue,
-            buttons: dialogue.buttons.map((button) => button.command === command ? { ...button, command: "" } : button)
+            buttons: dialogue.buttons.map((button) => button.commandId === commandId
+                ? { ...button, command: "", commandId: "" }
+                : button)
         }));
         saveNpc(npc, { ...data, dialogues, commands: data.commands.filter((_, index) => index !== result.selection) });
     }
@@ -453,6 +473,11 @@ async function showDialogueHome(player, npc) {
     openLater(() => showDialogueNode(player, npc, targetId));
 }
 
+function resolveButtonCommand(data, button) {
+    if (!button.commandId) return button.command;
+    return data.commands.find((entry) => entry.id === button.commandId)?.command || "";
+}
+
 async function showDialogueNode(player, npc, dialogueId, depth = 0) {
     if (depth >= LIMITS.maxDialogues) {
         player.sendMessage("[NPC] 对话关联层级过深，已结束。");
@@ -470,7 +495,8 @@ async function showDialogueNode(player, npc, dialogueId, depth = 0) {
     if (!result || result.canceled || result.selection >= dialogue.buttons.length) return;
     const button = dialogue.buttons[result.selection];
     if (button.closeMenu) return;
-    const commandExecuted = button.command ? await runNpcCommand(player, npc, button.command) : false;
+    const command = resolveButtonCommand(data, button);
+    const commandExecuted = command ? await runNpcCommand(player, npc, command) : false;
     if (commandExecuted && button.closeAfterCommand) return;
     if (button.nextId !== null) {
         openLater(() => showDialogueNode(player, npc, button.nextId, depth + 1));

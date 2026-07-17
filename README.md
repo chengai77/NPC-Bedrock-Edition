@@ -7,7 +7,7 @@
 | 项目 | 内容 |
 | --- | --- |
 | 模组名称 | 自定义NPC |
-| 附加包版本 | 1.1.21 |
+| 附加包版本 | 1.1.35 |
 | 最低引擎版本 | 1.26.33 |
 | Script API | @minecraft/server 2.8.0 |
 | UI API | @minecraft/server-ui 2.1.0 |
@@ -26,7 +26,7 @@
 ### 编辑器能力
 - 名称编辑（部分皮肤名称锁定）
 - 对话节点管理：文本、跳转链接、按钮（最多 20 节点 / 每节点 6 按钮）
-- 指令管理：支持 `{player}` 占位符（最多 10 条）
+- 指令管理：支持 `{player}` 占位符（最多 10 条），通过 ID 引用，修改后自动同步所有关联按钮
 - 皮肤选择：100 套预设，自动匹配 Classic/Slim 双臂型
 - AI 开关、无敌开关、删除 NPC
 
@@ -43,11 +43,13 @@
 - 命令长度上限 1024 字符
 - 仅替换 `{player}` 占位符，不改写选择器与参数
 - 玩家名校验：禁止引号、反斜杠、换行
+- 每条命令分配唯一 ID（`command_1`、`command_2`…），对话按钮通过 `commandId` 引用，修改或删除命令时自动同步关联按钮
 
 ### 数据持久化
 - 全部数据通过实体动态属性（DynamicProperty）存储，统一前缀 `customnpc:`
 - 内置迁移逻辑（`migrateNpc`）兼容旧数据
 - 数据上限保护（JSON ≤ 30 KB），损坏自动回退默认值
+- 命令引用同步（`synchronizeCommandReferences`），命令内容变更自动更新所有引用该命令的按钮，命令删除时引用自动清空
 
 ## 项目结构
 
@@ -76,7 +78,7 @@
 │   ├── render_controllers/npc.render_controllers.json
 │   ├── textures/
 │   │   ├── entity/npc_skins/        100 套皮肤
-│   │   ├── items/npc_spawn_egg.png
+│   │   ├── items/npc_spawn_egg_v3.png
 │   │   └── item_texture.json
 │   └── texts/
 ├── package.json  tsconfig.json

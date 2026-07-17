@@ -1,18 +1,18 @@
 {
-  "format_version": "1.20.20",
+  "format_version": "1.26.30",
   "minecraft:item": {
     "description": {
       "identifier": "customnpc:npc_spawn_egg",
       "menu_category": {
         "category": "nature",
-        "group": "itemGroup.name.spawnEgg",
+        "group": "minecraft:itemGroup.name.spawnEgg",
         "is_hidden_in_commands": false
       }
     },
     "components": {
       "minecraft:display_name": { "value": "item.spawn_egg.entity.customnpc:npc.name" },
       "minecraft:max_stack_size": 64,
-      "minecraft:icon": { "texture": "customnpc:npc_spawn_egg" },
+      "minecraft:icon": "customnpc:npc_spawn_egg_v3",
       "minecraft:entity_placer": { "entity": "customnpc:npc" }
     }
   }

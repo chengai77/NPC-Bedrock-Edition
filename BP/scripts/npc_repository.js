@@ -93,10 +93,11 @@ function normalizeDialogueButton(button, fallbackText) {
     const text = clampStr(source.text || fallbackText, LIMITS.buttonTextLength).trim();
     const nextId = Number.isInteger(source.nextId) ? source.nextId : null;
     const command = clampStr(source.command || "", LIMITS.commandLength).trim().replace(/^\//, "");
+    const commandId = clampStr(source.commandId || "", 64).trim();
     const closeAfterCommand = source.closeAfterCommand === true;
     const closeMenu = source.closeMenu === true
         || (text === "关闭" && nextId === null && !command && source.closeAfterCommand !== true);
-    return { text: text || fallbackText, nextId, command, closeAfterCommand, closeMenu };
+    return { text: text || fallbackText, nextId, command, commandId, closeAfterCommand, closeMenu };
 }
 
 // 验证对话节点，兼容旧版 first/second 数据
@@ -132,6 +133,29 @@ function isValidCommand(c) {
         && c.command.length <= LIMITS.commandLength;
 }
 
+function normalizeCommandId(value, index) {
+    const id = clampStr(value || "", 64).trim();
+    return id || `command_${index + 1}`;
+}
+
+function synchronizeCommandReferences(dialogues, commands) {
+    const byId = new Map(commands.map((command) => [command.id, command.command]));
+    const byCommand = new Map(commands.map((command) => [command.command, command.id]));
+    dialogues.forEach((dialogue) => {
+        dialogue.buttons.forEach((button) => {
+            if (!button.commandId && button.command) button.commandId = byCommand.get(button.command) || "";
+            if (button.commandId) {
+                const command = byId.get(button.commandId);
+                if (command) button.command = command;
+                else {
+                    button.commandId = "";
+                    button.command = "";
+                }
+            }
+        });
+    });
+}
+
 // 验证NPC数据，回退安全默认值
 // armModel 始终由 skinId 派生，不接受 data.armModel 输入
 export function validateNpcData(data) {
@@ -161,8 +185,21 @@ export function validateNpcData(data) {
             });
         }
         if (Array.isArray(data.commands)) {
-            safe.commands = data.commands.filter(isValidCommand).slice(0, LIMITS.maxCommands);
+            safe.commands = data.commands
+                .filter(isValidCommand)
+                .slice(0, LIMITS.maxCommands)
+                .map((command, index) => ({
+                    id: normalizeCommandId(command.id, index),
+                    command: clampStr(command.command, LIMITS.commandLength).trim().replace(/^\//, ""),
+                    description: clampStr(command.description || command.command, LIMITS.descLength).trim() || command.command
+                }));
+            const usedIds = new Set();
+            safe.commands.forEach((command, index) => {
+                while (usedIds.has(command.id)) command.id = `command_${index + 1}_${usedIds.size + 1}`;
+                usedIds.add(command.id);
+            });
         }
+        synchronizeCommandReferences(safe.dialogues, safe.commands);
         if (typeof data.aiEnabled === "boolean") safe.aiEnabled = data.aiEnabled;
         if (typeof data.invulnerable === "boolean") safe.invulnerable = data.invulnerable;
     } else {
