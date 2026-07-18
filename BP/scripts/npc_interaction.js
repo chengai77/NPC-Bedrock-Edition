@@ -1,13 +1,13 @@
-// NPC交互层，监听beforeEvents取消默认交互并延迟打开UI
+// NPC交互层
 import { world, system, GameMode } from "@minecraft/server";
 import { openEditor, openDialogue } from "./npc_forms.js";
 import { initializeNpc } from "./npc_repository.js";
 
 const NPC_ID = "customnpc:npc";
-// 调试开关：验证通过后置为false
+// 调试开关
 const DEBUG = false;
 
-// 使用枚举判断创造模式，禁止小写字符串比较
+// 创造模式判断
 function isCreative(player) {
     try {
         return player.getGameMode() === GameMode.Creative;
@@ -20,17 +20,17 @@ function isCreative(player) {
 export function setupInteraction() {
     world.beforeEvents.playerInteractWithEntity.subscribe((event) => {
         const { player, target } = event;
-        // 非本实体直接放行，不取消
+        // 非本实体放行
         if (!target || target.typeId !== NPC_ID) return;
 
         if (DEBUG) player.sendMessage("NPC interact received");
 
-        // 取消默认交互，避免消耗手持物品
+        // 取消默认交互
         event.cancel = true;
-        // 延迟到普通执行上下文打开UI
+        // 延迟打开UI
         system.run(() => {
             if (DEBUG) player.sendMessage("NPC UI dispatch");
-            // 双重校验实体有效性
+            // 校验实体有效性
             if (!target.isValid) {
                 if (DEBUG) player.sendMessage("NPC target invalid");
                 return;

@@ -1,6 +1,6 @@
-// 皮肤槽位注册表
-// 0=Classic/Steve 粗臂, 1=Slim/Alex 细臂
-// 由 tools/detect_skin_models.py 生成，禁止手写100项
+// 皮肤注册表
+// 0=粗臂 1=细臂
+
 export const SKIN_COUNT = 100;
 
 export const SKINS = Object.freeze({

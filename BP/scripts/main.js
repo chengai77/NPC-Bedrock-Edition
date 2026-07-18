@@ -31,9 +31,3 @@ system.runInterval(() => {
         }
     }
 }, 100);
-
-world.afterEvents.playerSpawn.subscribe(({ player, initialSpawn }) => {
-    if (initialSpawn) {
-        player.sendMessage("[自定义NPC] 脚本已加载 | API 2.8.0 / UI 2.1.0");
-    }
-});

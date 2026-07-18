@@ -1,9 +1,7 @@
 // NPC数据持久化层
-// 仅负责初始化、读取、验证、保存、迁移
-// armModel 由 skinId 的 registry 唯一派生，不接受外部输入
 import { getArmModel, isNameLocked, getFixedName, SKIN_COUNT } from "./skin_registry.js";
 
-// 动态属性Key，统一前缀
+// 动态属性Key
 const KEYS = Object.freeze({
     name: "customnpc:name",
     skinId: "customnpc:skin_id",
@@ -14,7 +12,7 @@ const KEYS = Object.freeze({
     invulnerable: "customnpc:invulnerable"
 });
 
-// 数据上限，防止动态属性超长
+// 数据上限
 export const LIMITS = Object.freeze({
     nameLength: 32,
     dialogueTextLength: 256,
@@ -39,25 +37,25 @@ const DEFAULTS = Object.freeze({
     invulnerable: false
 });
 
-// 读取字符串属性
+// 读字符串
 function getText(entity, key, fallback) {
     const value = entity.getDynamicProperty(key);
     return typeof value === "string" ? value : fallback;
 }
 
-// 读取数值属性
+// 读数值
 function getNumber(entity, key, fallback) {
     const value = entity.getDynamicProperty(key);
     return typeof value === "number" ? value : fallback;
 }
 
-// 读取布尔属性
+// 读布尔
 function getFlag(entity, key, fallback) {
     const value = entity.getDynamicProperty(key);
     return typeof value === "boolean" ? value : fallback;
 }
 
-// 读取JSON属性，损坏回退默认值
+// 读JSON属性
 function getJson(entity, key, fallback) {
     try {
         const parsed = JSON.parse(getText(entity, key, ""));
@@ -67,7 +65,7 @@ function getJson(entity, key, fallback) {
     }
 }
 
-// 写入JSON属性，超长抛错由调用方处理
+// 写JSON属性
 function setJson(entity, key, value) {
     const str = JSON.stringify(value);
     if (str.length > LIMITS.maxJsonBytes) {
@@ -76,13 +74,13 @@ function setJson(entity, key, value) {
     entity.setDynamicProperty(key, str);
 }
 
-// 限制皮肤槽位范围
+// 皮肤槽位范围
 function clampSkin(skinId) {
     const id = Math.floor(skinId);
     return Math.max(1, Math.min(SKIN_COUNT, id));
 }
 
-// 截断字符串到指定长度
+// 截断字符串
 function clampStr(s, max) {
     return typeof s === "string" ? s.slice(0, max) : "";
 }
@@ -100,7 +98,7 @@ function normalizeDialogueButton(button, fallbackText) {
     return { text: text || fallbackText, nextId, command, commandId, closeAfterCommand, closeMenu };
 }
 
-// 验证对话节点，兼容旧版 first/second 数据
+// 验证对话节点
 function normalizeDialogue(dialogue, index) {
     if (!dialogue || typeof dialogue !== "object" || typeof dialogue.text !== "string" || !dialogue.text.trim()) {
         return null;
@@ -156,13 +154,12 @@ function synchronizeCommandReferences(dialogues, commands) {
     });
 }
 
-// 验证NPC数据，回退安全默认值
-// armModel 始终由 skinId 派生，不接受 data.armModel 输入
+// 验证NPC数据
 export function validateNpcData(data) {
     const safe = { ...DEFAULTS };
     if (data && typeof data === "object") {
         if (typeof data.skinId === "number") safe.skinId = clampSkin(data.skinId);
-        // armModel 由 registry 派生，不接受外部输入
+        // armModel由skinId派生
         safe.armModel = getArmModel(safe.skinId);
         if (typeof data.name === "string" && data.name.trim()) {
             safe.name = clampStr(data.name.trim(), LIMITS.nameLength);
@@ -205,7 +202,7 @@ export function validateNpcData(data) {
     } else {
         safe.armModel = getArmModel(safe.skinId);
     }
-    // 名称锁定皮肤强制使用固定名
+    // 锁定皮肤固定名
     if (isNameLocked(safe.skinId)) {
         const fixed = getFixedName(safe.skinId);
         if (fixed) safe.name = fixed;
@@ -213,14 +210,13 @@ export function validateNpcData(data) {
     return safe;
 }
 
-// 加载NPC数据为结构化对象
-// armModel 不读取旧持久化值作为有效输入，始终由 skinId 派生
+// 加载NPC数据
 export function loadNpc(entity) {
     const skinId = clampSkin(getNumber(entity, KEYS.skinId, DEFAULTS.skinId));
     const data = {
         name: getText(entity, KEYS.name, DEFAULTS.name),
         skinId,
-        // armModel 由 registry 派生，忽略持久化中的旧值
+        // armModel由skinId派生
         armModel: getArmModel(skinId),
         dialogues: getJson(entity, KEYS.dialogues, DEFAULTS.dialogues),
         commands: getJson(entity, KEYS.commands, DEFAULTS.commands),
@@ -230,8 +226,7 @@ export function loadNpc(entity) {
     return validateNpcData(data);
 }
 
-// 保存NPC数据，同步实体属性与nameTag
-// armModel 只保存由 registry 派生的值，作为客户端缓存
+// 保存NPC数据
 export function saveNpc(entity, data) {
     const safe = validateNpcData(data);
     entity.setDynamicProperty(KEYS.name, safe.name);
@@ -241,59 +236,57 @@ export function saveNpc(entity, data) {
     setJson(entity, KEYS.commands, safe.commands);
     entity.setDynamicProperty(KEYS.aiEnabled, safe.aiEnabled);
     entity.setDynamicProperty(KEYS.invulnerable, safe.invulnerable);
-    // 同步客户端渲染属性
+    // 同步客户端属性
     entity.setProperty("customnpc:skin_id", safe.skinId);
     entity.setProperty("customnpc:arm_model", safe.armModel);
     // 同步AI组件组状态
     syncAiComponent(entity, safe.aiEnabled);
-    // 同步显示名称，不追加状态后缀
+    // 同步显示名称
     entity.nameTag = safe.name;
     return safe;
 }
 
-// 同步AI组件组，通过实体事件增删
+// 同步AI组件组
 function syncAiComponent(entity, aiEnabled) {
     try {
         entity.triggerEvent(aiEnabled ? "customnpc:enable_ai" : "customnpc:disable_ai");
     } catch {
-        // 事件触发失败忽略，不影响数据保存
+        // 事件失败忽略
     }
 }
 
-// 初始化NPC，仅在缺失数据时写入默认值
-// 无条件将客户端属性设置为 registry 结果，处理旧实体和版本升级
+// 初始化NPC
 export function initializeNpc(entity) {
     if (entity.typeId !== "customnpc:npc") return;
     const skinId = clampSkin(getNumber(entity, KEYS.skinId, -1));
 
-    // 名称缺失或锁定皮肤强制固定名
+    // 名称缺失或锁定
     let name = getText(entity, KEYS.name, "");
     if (!name || isNameLocked(skinId)) {
         name = getFixedName(skinId) ?? DEFAULTS.name;
         entity.setDynamicProperty(KEYS.name, name);
     }
 
-    // 写入缺失的默认值
+    // 写入默认值
     if (entity.getDynamicProperty(KEYS.skinId) === undefined) entity.setDynamicProperty(KEYS.skinId, skinId);
-    // armModel 始终写入 registry 派生值，覆盖旧缓存
+    // armModel由skinId派生
     entity.setDynamicProperty(KEYS.armModel, getArmModel(skinId));
     if (entity.getDynamicProperty(KEYS.dialogues) === undefined) setJson(entity, KEYS.dialogues, DEFAULTS.dialogues);
     if (entity.getDynamicProperty(KEYS.commands) === undefined) setJson(entity, KEYS.commands, DEFAULTS.commands);
     if (entity.getDynamicProperty(KEYS.aiEnabled) === undefined) entity.setDynamicProperty(KEYS.aiEnabled, DEFAULTS.aiEnabled);
     if (entity.getDynamicProperty(KEYS.invulnerable) === undefined) entity.setDynamicProperty(KEYS.invulnerable, DEFAULTS.invulnerable);
 
-    // 无条件同步客户端渲染属性与nameTag
+    // 同步客户端属性
     entity.setProperty("customnpc:skin_id", skinId);
     entity.setProperty("customnpc:arm_model", getArmModel(skinId));
     entity.nameTag = name;
 
-    // 恢复AI组件组状态
+    // 恢复AI状态
     const aiEnabled = getFlag(entity, KEYS.aiEnabled, DEFAULTS.aiEnabled);
     syncAiComponent(entity, aiEnabled);
 }
 
-// 迁移NPC：发现skin_id与arm_model不匹配时只修正arm_model
-// 不得改动名称、对话、命令、AI状态
+// 迁移NPC
 export function migrateNpc(entity) {
     if (entity.typeId !== "customnpc:npc") return false;
     const skinId = clampSkin(getNumber(entity, KEYS.skinId, DEFAULTS.skinId));
@@ -301,7 +294,7 @@ export function migrateNpc(entity) {
     const storedArm = getNumber(entity, KEYS.armModel, -1);
     let migrated = false;
 
-    // arm_model 不匹配则修正
+    // 修正armModel
     if (storedArm !== expectedArm) {
         entity.setDynamicProperty(KEYS.armModel, expectedArm);
         migrated = true;
@@ -313,7 +306,7 @@ export function migrateNpc(entity) {
     } catch {
         // 属性设置失败忽略
     }
-    // 名称锁定皮肤强制固定名（不覆盖其他名称）
+    // 锁定皮肤固定名
     if (isNameLocked(skinId)) {
         const fixed = getFixedName(skinId);
         const currentName = getText(entity, KEYS.name, "");
@@ -323,7 +316,7 @@ export function migrateNpc(entity) {
             migrated = true;
         }
     } else {
-        // 普通皮肤同步nameTag
+        // 同步nameTag
         const name = getText(entity, KEYS.name, DEFAULTS.name);
         if (entity.nameTag !== name) entity.nameTag = name;
     }
