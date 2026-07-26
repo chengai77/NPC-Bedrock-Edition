@@ -6,6 +6,9 @@ const KEYS = Object.freeze({
     name: "customnpc:name",
     skinId: "customnpc:skin_id",
     armModel: "customnpc:arm_model",
+    dialogueMode: "customnpc:dialogue_mode",
+    homeDescription: "customnpc:home_description",
+    storyLines: "customnpc:story_lines",
     dialogues: "customnpc:dialogues",
     commands: "customnpc:commands",
     aiEnabled: "customnpc:ai_enabled",
@@ -16,6 +19,8 @@ const KEYS = Object.freeze({
 export const LIMITS = Object.freeze({
     nameLength: 32,
     dialogueTextLength: 256,
+    storyLineLength: 256,
+    homeDescriptionLength: 256,
     buttonTextLength: 32,
     commandLength: 512,
     descLength: 32,
@@ -26,11 +31,14 @@ export const LIMITS = Object.freeze({
 });
 
 // 安全默认值
-/** @type {{name: string, skinId: number, armModel: number, dialogues: Array, commands: Array, aiEnabled: boolean, invulnerable: boolean}} */
+/** @type {{name: string, skinId: number, armModel: number, dialogueMode: string, homeDescription: string, storyLines: Array, dialogues: Array, commands: Array, aiEnabled: boolean, invulnerable: boolean}} */
 const DEFAULTS = Object.freeze({
     name: "NPC",
     skinId: 1,
     armModel: 0,
+    dialogueMode: "interaction",
+    homeDescription: "",
+    storyLines: [],
     dialogues: [],
     commands: [],
     aiEnabled: false,
@@ -83,6 +91,15 @@ function clampSkin(skinId) {
 // 截断字符串
 function clampStr(s, max) {
     return typeof s === "string" ? s.slice(0, max) : "";
+}
+
+function normalizeDialogueMode(value) {
+    return value === "story" ? "story" : "interaction";
+}
+
+function normalizeStoryLine(line) {
+    const text = clampStr(String(line ?? "").trim(), LIMITS.storyLineLength);
+    return text || null;
 }
 
 // 验证对话按钮
@@ -164,6 +181,16 @@ export function validateNpcData(data) {
         if (typeof data.name === "string" && data.name.trim()) {
             safe.name = clampStr(data.name.trim(), LIMITS.nameLength);
         }
+        if (typeof data.dialogueMode === "string") safe.dialogueMode = normalizeDialogueMode(data.dialogueMode);
+        if (typeof data.homeDescription === "string") {
+            safe.homeDescription = clampStr(data.homeDescription.trim(), LIMITS.homeDescriptionLength);
+        }
+        if (Array.isArray(data.storyLines)) {
+            safe.storyLines = data.storyLines
+                .map(normalizeStoryLine)
+                .filter(Boolean)
+                .slice(0, LIMITS.maxDialogues);
+        }
         if (Array.isArray(data.dialogues)) {
             safe.dialogues = data.dialogues
                 .map((dialogue, index) => normalizeDialogue(dialogue, index))
@@ -197,6 +224,9 @@ export function validateNpcData(data) {
             });
         }
         synchronizeCommandReferences(safe.dialogues, safe.commands);
+        if (safe.dialogueMode === "story" && !safe.storyLines.length && safe.dialogues.length) {
+            safe.storyLines = safe.dialogues.map((dialogue) => dialogue.text).slice(0, LIMITS.maxDialogues);
+        }
         if (typeof data.aiEnabled === "boolean") safe.aiEnabled = data.aiEnabled;
         if (typeof data.invulnerable === "boolean") safe.invulnerable = data.invulnerable;
     } else {
@@ -218,6 +248,9 @@ export function loadNpc(entity) {
         skinId,
         // armModel由skinId派生
         armModel: getArmModel(skinId),
+        dialogueMode: normalizeDialogueMode(getText(entity, KEYS.dialogueMode, DEFAULTS.dialogueMode)),
+        homeDescription: getText(entity, KEYS.homeDescription, DEFAULTS.homeDescription),
+        storyLines: getJson(entity, KEYS.storyLines, DEFAULTS.storyLines),
         dialogues: getJson(entity, KEYS.dialogues, DEFAULTS.dialogues),
         commands: getJson(entity, KEYS.commands, DEFAULTS.commands),
         aiEnabled: getFlag(entity, KEYS.aiEnabled, DEFAULTS.aiEnabled),
@@ -232,6 +265,9 @@ export function saveNpc(entity, data) {
     entity.setDynamicProperty(KEYS.name, safe.name);
     entity.setDynamicProperty(KEYS.skinId, safe.skinId);
     entity.setDynamicProperty(KEYS.armModel, safe.armModel);
+    entity.setDynamicProperty(KEYS.dialogueMode, safe.dialogueMode);
+    entity.setDynamicProperty(KEYS.homeDescription, safe.homeDescription);
+    setJson(entity, KEYS.storyLines, safe.storyLines);
     setJson(entity, KEYS.dialogues, safe.dialogues);
     setJson(entity, KEYS.commands, safe.commands);
     entity.setDynamicProperty(KEYS.aiEnabled, safe.aiEnabled);
@@ -271,6 +307,9 @@ export function initializeNpc(entity) {
     if (entity.getDynamicProperty(KEYS.skinId) === undefined) entity.setDynamicProperty(KEYS.skinId, skinId);
     // armModel由skinId派生
     entity.setDynamicProperty(KEYS.armModel, getArmModel(skinId));
+    if (entity.getDynamicProperty(KEYS.dialogueMode) === undefined) entity.setDynamicProperty(KEYS.dialogueMode, DEFAULTS.dialogueMode);
+    if (entity.getDynamicProperty(KEYS.homeDescription) === undefined) entity.setDynamicProperty(KEYS.homeDescription, DEFAULTS.homeDescription);
+    if (entity.getDynamicProperty(KEYS.storyLines) === undefined) setJson(entity, KEYS.storyLines, DEFAULTS.storyLines);
     if (entity.getDynamicProperty(KEYS.dialogues) === undefined) setJson(entity, KEYS.dialogues, DEFAULTS.dialogues);
     if (entity.getDynamicProperty(KEYS.commands) === undefined) setJson(entity, KEYS.commands, DEFAULTS.commands);
     if (entity.getDynamicProperty(KEYS.aiEnabled) === undefined) entity.setDynamicProperty(KEYS.aiEnabled, DEFAULTS.aiEnabled);

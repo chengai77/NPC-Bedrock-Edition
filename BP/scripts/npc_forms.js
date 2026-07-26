@@ -7,6 +7,7 @@ import { validateCommand, buildCommand } from "./command_policy.js";
 const AUTHOR = "承挨";
 const SKIN_PAGE_SIZE = 20;
 const TRADE_PREFIX = "customnpc:trade|";
+const MODE_LABELS = Object.freeze({ interaction: "交互模式", story: "剧情模式" });
 
 const ITEM_DISPLAY_NAMES = Object.freeze({
     "minecraft:apple": "苹果",
@@ -76,9 +77,11 @@ export async function openEditor(player, npc) {
     const data = loadNpc(npc);
     const form = new ActionFormData()
         .title("编辑 NPC")
-        .body(`名称: ${data.name}\n皮肤: ${getSkinDisplayName(data.skinId)}\n作者: ${AUTHOR}`)
+        .body(`名称: ${data.name}\n模式: ${MODE_LABELS[data.dialogueMode]}\n皮肤: ${getSkinDisplayName(data.skinId)}\n作者: ${AUTHOR}`)
         .button("编辑名称")
-        .button("编辑对话")
+        .button(data.dialogueMode === "story" ? "切换为交互模式" : "切换为剧情模式")
+        .button("编辑交互模式")
+        .button("编辑剧情模式")
         .button("编辑指令库")
         .button("选择皮肤")
         .button(data.aiEnabled ? "关闭自主行走" : "开启自主行走")
@@ -88,13 +91,22 @@ export async function openEditor(player, npc) {
     if (!result || result.canceled) return;
     switch (result.selection) {
         case 0: return editName(player, npc);
-        case 1: return editDialogues(player, npc);
-        case 2: return editCommands(player, npc);
-        case 3: return selectSkin(player, npc, 0);
-        case 4: return toggleAi(player, npc, data);
-        case 5: return toggleInvulnerability(player, npc, data);
-        case 6: return confirmDelete(player, npc);
+        case 1: return toggleDialogueMode(player, npc, data);
+        case 2: return editDialogues(player, npc);
+        case 3: return editStoryMode(player, npc);
+        case 4: return editCommands(player, npc);
+        case 5: return selectSkin(player, npc, 0);
+        case 6: return toggleAi(player, npc, data);
+        case 7: return toggleInvulnerability(player, npc, data);
+        case 8: return confirmDelete(player, npc);
     }
+}
+
+async function toggleDialogueMode(player, npc, data) {
+    const dialogueMode = data.dialogueMode === "story" ? "interaction" : "story";
+    saveNpc(npc, { ...data, dialogueMode });
+    player.sendMessage(`NPC 已切换为${MODE_LABELS[dialogueMode]}`);
+    openLater(() => openEditor(player, npc));
 }
 
 async function toggleAi(player, npc, data) {
@@ -134,20 +146,35 @@ async function editName(player, npc) {
 async function editDialogues(player, npc) {
     const data = loadNpc(npc);
     const form = new ActionFormData()
-        .title("编辑对话节点")
-        .body(`节点 ${data.dialogues.length}/${LIMITS.maxDialogues}\n首页显示未开启「首页隐藏」的节点`)
-        .button(data.dialogues.length < LIMITS.maxDialogues ? "添加节点" : "已达节点上限");
+        .title("编辑交互模式")
+        .body(`当前模式: ${MODE_LABELS[data.dialogueMode]}\n首页描述: ${data.homeDescription || "未设置"}\n交互节点 ${data.dialogues.length}/${LIMITS.maxDialogues}\n首页显示未开启「首页隐藏」的节点`)
+        .button("编辑首页描述")
+        .button(data.dialogues.length < LIMITS.maxDialogues ? "添加交互节点" : "已达节点上限");
     data.dialogues.forEach((dialogue) => form.button(`节点 ${dialogue.id}: ${dialogue.text.slice(0, 18)}`));
     form.button("返回");
     const result = await form.show(player).catch((error) => { handleFormError(player, error); return null; });
     if (!result || result.canceled) return openLater(() => openEditor(player, npc));
-    if (result.selection === 0) {
+    if (result.selection === 0) return editHomeDescription(player, npc);
+    if (result.selection === 1) {
         if (data.dialogues.length < LIMITS.maxDialogues) return addDialogue(player, npc, data);
         return openLater(() => editDialogues(player, npc));
     }
-    const nodeIndex = result.selection - 1;
+    const nodeIndex = result.selection - 2;
     if (nodeIndex < data.dialogues.length) return editDialogueNode(player, npc, data.dialogues[nodeIndex].id);
     openLater(() => openEditor(player, npc));
+}
+
+async function editHomeDescription(player, npc) {
+    const data = loadNpc(npc);
+    const form = new ModalFormData()
+        .title("编辑首页描述")
+        .textField(`首页描述(最多${LIMITS.homeDescriptionLength}字)`, "留空则显示默认提示", { defaultValue: data.homeDescription });
+    const result = await form.show(player).catch((error) => { handleFormError(player, error); return null; });
+    if (result && !result.canceled) {
+        const homeDescription = String(result.formValues[0] ?? "").trim().slice(0, LIMITS.homeDescriptionLength);
+        saveNpc(npc, { ...data, homeDescription });
+    }
+    openLater(() => editDialogues(player, npc));
 }
 
 async function addDialogue(player, npc, data) {
@@ -293,6 +320,48 @@ async function deleteDialogueNode(player, npc, dialogueId) {
         saveNpc(npc, { ...data, dialogues: data.dialogues.filter((dialogue) => dialogue.id !== dialogueId) });
     }
     openLater(() => editDialogues(player, npc));
+}
+
+async function editStoryMode(player, npc) {
+    const data = loadNpc(npc);
+    const form = new ActionFormData()
+        .title("编辑剧情模式")
+        .body(`当前模式: ${MODE_LABELS[data.dialogueMode]}\n剧情文本 ${data.storyLines.length}/${LIMITS.maxDialogues}\n剧情模式不会显示任何选择按钮，只按顺序播放独白。`)
+        .button(data.storyLines.length < LIMITS.maxDialogues ? "添加剧情文本" : "已达上限");
+    data.storyLines.forEach((line, index) => form.button(`${index + 1}. ${line.slice(0, 18)}`));
+    form.button("返回");
+    const result = await form.show(player).catch((error) => { handleFormError(player, error); return null; });
+    if (!result || result.canceled) return openLater(() => openEditor(player, npc));
+    if (result.selection === 0) {
+        if (data.storyLines.length < LIMITS.maxDialogues) return editStoryLine(player, npc, -1);
+        return openLater(() => editStoryMode(player, npc));
+    }
+    const lineIndex = result.selection - 1;
+    if (lineIndex < data.storyLines.length) return editStoryLine(player, npc, lineIndex);
+    openLater(() => openEditor(player, npc));
+}
+
+async function editStoryLine(player, npc, lineIndex) {
+    const data = loadNpc(npc);
+    const isNew = lineIndex < 0;
+    const oldText = isNew ? "" : data.storyLines[lineIndex];
+    const form = new ModalFormData()
+        .title(isNew ? "添加剧情文本" : `编辑剧情文本 ${lineIndex + 1}`)
+        .textField(`独白文本(最多${LIMITS.storyLineLength}字)`, "输入 NPC 单方面剧情文本", { defaultValue: oldText ?? "" })
+        .toggle("删除此文本", { defaultValue: false });
+    const result = await form.show(player).catch((error) => { handleFormError(player, error); return null; });
+    if (result && !result.canceled) {
+        const text = String(result.formValues[0] ?? "").trim().slice(0, LIMITS.storyLineLength);
+        const remove = result.formValues[1] === true;
+        const storyLines = [...data.storyLines];
+        if (!isNew && remove) storyLines.splice(lineIndex, 1);
+        else if (text) {
+            if (isNew) storyLines.push(text);
+            else storyLines[lineIndex] = text;
+        }
+        saveNpc(npc, { ...data, storyLines });
+    }
+    openLater(() => editStoryMode(player, npc));
 }
 
 async function editCommands(player, npc) {
@@ -455,7 +524,31 @@ async function confirmDelete(player, npc) {
 }
 
 export async function openDialogue(player, npc) {
+    const data = loadNpc(npc);
+    if (data.dialogueMode === "story") return showStoryMode(player, npc, 0);
     showDialogueHome(player, npc);
+}
+
+function formatStoryBody(data, index) {
+    const total = data.storyLines.length;
+    const text = data.storyLines[index] ?? "";
+    return `§8━━━━━━━━━━━━━━§r\n§l${data.name}§r\n\n${text}\n\n§8━━━━━━━━━━━━━━§r\n§7${index + 1}/${total} · 点击“继续”推进剧情§r`;
+}
+
+async function showStoryMode(player, npc, index) {
+    const data = loadNpc(npc);
+    if (!data.storyLines.length) {
+        player.sendMessage("这个 NPC 没有可播放的剧情文本。");
+        return;
+    }
+    const safeIndex = Math.max(0, Math.min(index, data.storyLines.length - 1));
+    const form = new ActionFormData()
+        .title("剧情")
+        .body(formatStoryBody(data, safeIndex))
+        .button(safeIndex < data.storyLines.length - 1 ? "继续" : "结束");
+    const result = await form.show(player).catch((error) => { handleFormError(player, error); return null; });
+    if (!result || result.canceled) return;
+    if (safeIndex < data.storyLines.length - 1) openLater(() => showStoryMode(player, npc, safeIndex + 1));
 }
 
 async function showDialogueHome(player, npc) {
@@ -465,7 +558,8 @@ async function showDialogueHome(player, npc) {
         player.sendMessage("这个 NPC 没有可显示的首页节点。");
         return;
     }
-    const form = new ActionFormData().title(data.name).body("请选择对话");
+    const homeBody = data.homeDescription || "请选择交互内容";
+    const form = new ActionFormData().title(data.name).body(homeBody);
     visibleNodes.forEach((dialogue) => form.button(dialogue.homepageLabel));
     const result = await form.show(player).catch((error) => { handleFormError(player, error); return null; });
     if (!result || result.canceled || result.selection >= visibleNodes.length) return;
