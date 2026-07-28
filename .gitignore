@@ -6,6 +6,7 @@ tools/
 *.mcaddon
 build.ps1
 import.ps1
+更新日志.md
 
 .vscode/
 .idea/
