@@ -18,9 +18,9 @@ const KEYS = Object.freeze({
 // 数据上限
 export const LIMITS = Object.freeze({
     nameLength: 32,
-    dialogueTextLength: 256,
-    storyLineLength: 256,
-    homeDescriptionLength: 256,
+    dialogueTextLength: 1024,
+    storyLineLength: 1024,
+    homeDescriptionLength: 1024,
     buttonTextLength: 32,
     commandLength: 512,
     descLength: 32,

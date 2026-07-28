@@ -7,6 +7,8 @@ import { validateCommand, buildCommand } from "./command_policy.js";
 const AUTHOR = "承挨";
 const SKIN_PAGE_SIZE = 20;
 const TRADE_PREFIX = "customnpc:trade|";
+const LONG_TEXT_PART_LENGTH = 256;
+const LONG_TEXT_CONTINUE_PLACEHOLDER = "输入框输不下时可选择在此输入框继续编辑";
 const MODE_LABELS = Object.freeze({ interaction: "交互模式", story: "剧情模式" });
 
 const ITEM_DISPLAY_NAMES = Object.freeze({
@@ -39,10 +41,82 @@ function openLater(callback) {
     system.runTimeout(callback, 1);
 }
 
+function refreshLongTextEditor(callback) {
+    system.run(callback);
+}
+
 function handleFormError(player, error) {
     const msg = String(error?.message ?? error);
     player.sendMessage(`[NPC UI] ${msg}`);
     console.error(`[NPC UI] ${msg}`);
+}
+
+function decodeTextFieldNewlines(value) {
+    return String(value ?? "").replace(/\\n/g, "\n").replace(/\/n/g, "\n");
+}
+
+function encodeTextFieldNewlines(value) {
+    return decodeTextFieldNewlines(value).replace(/\n/g, "/n");
+}
+
+function displayText(value) {
+    return decodeTextFieldNewlines(value);
+}
+
+function previewText(value, max = 18) {
+    return displayText(value).replace(/\n/g, " / ").slice(0, max);
+}
+
+function estimateDisplayLines(value) {
+    return displayText(value).split("\n").reduce((total, line) => total + Math.max(1, Math.ceil(line.length / 18)), 0);
+}
+
+function addBottomButtonSpacer(form, buttonCount, bodyText) {
+    const bodyLines = estimateDisplayLines(bodyText);
+    const buttonRows = Math.max(1, Math.min(buttonCount, 4));
+    const spacerLines = Math.max(0, 12 - bodyLines - buttonRows * 3);
+    if (spacerLines > 0) form.label("\n".repeat(spacerLines));
+    return form;
+}
+
+function splitLongTextForFields(value, maxLength) {
+    const text = encodeTextFieldNewlines(value).slice(0, maxLength);
+    const count = Math.ceil(maxLength / LONG_TEXT_PART_LENGTH);
+    return Array.from({ length: count }, (_, index) => text.slice(index * LONG_TEXT_PART_LENGTH, (index + 1) * LONG_TEXT_PART_LENGTH));
+}
+
+function isLongTextMode(value) {
+    return encodeTextFieldNewlines(value).length > LONG_TEXT_PART_LENGTH;
+}
+
+function addLongTextEditor(form, label, value, maxLength, longTextMode) {
+    const parts = splitLongTextForFields(value, maxLength);
+    form.textField(label, label, { defaultValue: parts[0] ?? "" })
+        .toggle("长文本编辑模式", { defaultValue: longTextMode });
+    if (longTextMode) {
+        parts.slice(1).forEach((part) => form.textField("", LONG_TEXT_CONTINUE_PLACEHOLDER, { defaultValue: part }));
+    }
+    return form;
+}
+
+function longTextControlCount(maxLength, longTextMode) {
+    const count = Math.ceil(maxLength / LONG_TEXT_PART_LENGTH);
+    return longTextMode ? count + 1 : 2;
+}
+
+function readLongTextMode(values, startIndex) {
+    return values[startIndex + 1] === true;
+}
+
+function readLongTextEditor(values, startIndex, maxLength, longTextMode) {
+    const count = Math.ceil(maxLength / LONG_TEXT_PART_LENGTH);
+    const parts = [String(values[startIndex] ?? "")];
+    if (longTextMode) {
+        parts.push(...values.slice(startIndex + 2, startIndex + count + 1).map((value) => String(value ?? "")));
+    }
+    return decodeTextFieldNewlines(parts.join(""))
+        .trim()
+        .slice(0, maxLength);
 }
 
 function nextDialogueId(dialogues) {
@@ -54,7 +128,7 @@ function getDialogue(data, id) {
 }
 
 function commandChoices(data) {
-    return ["不执行指令", ...data.commands.map((entry, index) => `${index + 1}. ${entry.description}`)];
+    return ["不执行", ...data.commands.map((entry, index) => `${index + 1}. ${previewText(entry.description, 18)}`)];
 }
 
 function getCommandIndex(data, button) {
@@ -70,7 +144,7 @@ function nextCommandId(commands) {
 }
 
 function linkChoices(data) {
-    return ["无（仅执行命令）", "关闭菜单（不执行指令）", ...data.dialogues.map((dialogue) => `节点 ${dialogue.id}: ${dialogue.text.slice(0, 16)}`)];
+    return ["无", "关闭", ...data.dialogues.map((dialogue) => `节点 ${dialogue.id}: ${previewText(dialogue.text, 16)}`)];
 }
 
 export async function openEditor(player, npc) {
@@ -131,7 +205,7 @@ async function editName(player, npc) {
     }
     const form = new ModalFormData()
         .title("编辑名称")
-        .textField(`NPC 名称 (最多${LIMITS.nameLength}字)`, "输入名称", { defaultValue: data.name });
+        .textField(`名称`, "名称", { defaultValue: data.name });
     const result = await form.show(player).catch((error) => { handleFormError(player, error); return null; });
     if (!result || result.canceled) return openLater(() => openEditor(player, npc));
     const name = String(result.formValues[0] ?? "").trim();
@@ -147,10 +221,10 @@ async function editDialogues(player, npc) {
     const data = loadNpc(npc);
     const form = new ActionFormData()
         .title("编辑交互模式")
-        .body(`当前模式: ${MODE_LABELS[data.dialogueMode]}\n首页描述: ${data.homeDescription || "未设置"}\n交互节点 ${data.dialogues.length}/${LIMITS.maxDialogues}\n首页显示未开启「首页隐藏」的节点`)
+        .body(`模式: ${MODE_LABELS[data.dialogueMode]}\n首页: ${previewText(data.homeDescription, 28) || "未设置"}\n节点: ${data.dialogues.length}/${LIMITS.maxDialogues}`)
         .button("编辑首页描述")
-        .button(data.dialogues.length < LIMITS.maxDialogues ? "添加交互节点" : "已达节点上限");
-    data.dialogues.forEach((dialogue) => form.button(`节点 ${dialogue.id}: ${dialogue.text.slice(0, 18)}`));
+        .button(data.dialogues.length < LIMITS.maxDialogues ? "添加节点" : "已达上限");
+    data.dialogues.forEach((dialogue) => form.button(`节点 ${dialogue.id}: ${previewText(dialogue.text)}`));
     form.button("返回");
     const result = await form.show(player).catch((error) => { handleFormError(player, error); return null; });
     if (!result || result.canceled) return openLater(() => openEditor(player, npc));
@@ -164,28 +238,34 @@ async function editDialogues(player, npc) {
     openLater(() => openEditor(player, npc));
 }
 
-async function editHomeDescription(player, npc) {
+async function editHomeDescription(player, npc, draftText = null, longTextMode = null) {
     const data = loadNpc(npc);
+    const value = draftText ?? data.homeDescription;
+    const useLongTextMode = longTextMode ?? isLongTextMode(value);
     const form = new ModalFormData()
-        .title("编辑首页描述")
-        .textField(`首页描述(最多${LIMITS.homeDescriptionLength}字)`, "留空则显示默认提示", { defaultValue: data.homeDescription });
+        .title("编辑首页描述");
+    addLongTextEditor(form, "首页描述", value, LIMITS.homeDescriptionLength, useLongTextMode);
     const result = await form.show(player).catch((error) => { handleFormError(player, error); return null; });
     if (result && !result.canceled) {
-        const homeDescription = String(result.formValues[0] ?? "").trim().slice(0, LIMITS.homeDescriptionLength);
+        const nextLongTextMode = readLongTextMode(result.formValues, 0);
+        const homeDescription = readLongTextEditor(result.formValues, 0, LIMITS.homeDescriptionLength, useLongTextMode);
+        if (nextLongTextMode !== useLongTextMode) return refreshLongTextEditor(() => editHomeDescription(player, npc, homeDescription, nextLongTextMode));
         saveNpc(npc, { ...data, homeDescription });
     }
     openLater(() => editDialogues(player, npc));
 }
 
-async function addDialogue(player, npc, data) {
+async function addDialogue(player, npc, data, draftHomepageLabel = "", draftText = "", longTextMode = false) {
     const form = new ModalFormData()
-        .title("添加对话节点")
-        .textField(`首页按钮名称(最多${LIMITS.buttonTextLength}字)`, "输入首页按钮文字", { defaultValue: "" })
-        .textField(`对话内容(最多${LIMITS.dialogueTextLength}字)`, "输入对话", { defaultValue: "" });
+        .title("添加节点")
+        .textField(`首页按钮（/n换行）`, "按钮", { defaultValue: draftHomepageLabel });
+    addLongTextEditor(form, "内容", draftText, LIMITS.dialogueTextLength, longTextMode);
     const result = await form.show(player).catch((error) => { handleFormError(player, error); return null; });
     if (!result || result.canceled) return openLater(() => editDialogues(player, npc));
-    const homepageLabel = String(result.formValues[0] ?? "").trim().slice(0, LIMITS.buttonTextLength);
-    const text = String(result.formValues[1] ?? "").trim();
+    const homepageLabel = decodeTextFieldNewlines(result.formValues[0]).trim().slice(0, LIMITS.buttonTextLength);
+    const nextLongTextMode = readLongTextMode(result.formValues, 1);
+    const text = readLongTextEditor(result.formValues, 1, LIMITS.dialogueTextLength, longTextMode);
+    if (nextLongTextMode !== longTextMode) return refreshLongTextEditor(() => addDialogue(player, npc, data, homepageLabel, text, nextLongTextMode));
     if (!homepageLabel || !text || text.length > LIMITS.dialogueTextLength) {
         if (text.length > LIMITS.dialogueTextLength) player.sendMessage(`对话超长(>${LIMITS.dialogueTextLength}字)`);
         return openLater(() => editDialogues(player, npc));
@@ -207,12 +287,12 @@ async function editDialogueNode(player, npc, dialogueId) {
     if (!dialogue) return openLater(() => editDialogues(player, npc));
     const form = new ActionFormData()
         .title(`节点 ${dialogue.id}`)
-        .body(`${dialogue.text}\n首页按钮: ${dialogue.homepageLabel}\n按钮 ${dialogue.buttons.length}/${LIMITS.maxDialogueButtons}`)
-        .button("编辑首页按钮名称")
-        .button("编辑对话内容")
+        .body(`${displayText(dialogue.text)}\n首页按钮: ${displayText(dialogue.homepageLabel)}\n按钮 ${dialogue.buttons.length}/${LIMITS.maxDialogueButtons}`)
+        .button("首页按钮")
+        .button("节点内容")
         .button(dialogue.homepageHidden ? "关闭首页隐藏" : "首页隐藏")
-        .button(dialogue.buttons.length < LIMITS.maxDialogueButtons ? "添加按钮" : "已达按钮上限");
-    dialogue.buttons.forEach((button, index) => form.button(`按钮 ${index + 1}: ${button.text}`));
+        .button(dialogue.buttons.length < LIMITS.maxDialogueButtons ? "添加按钮" : "已达上限");
+    dialogue.buttons.forEach((button, index) => form.button(`按钮 ${index + 1}: ${previewText(button.text)}`));
     form.button("删除节点")
         .button("返回节点列表");
     const result = await form.show(player).catch((error) => { handleFormError(player, error); return null; });
@@ -238,11 +318,11 @@ async function editHomepageLabel(player, npc, dialogueId) {
     const data = loadNpc(npc);
     const dialogue = getDialogue(data, dialogueId);
     if (!dialogue) return openLater(() => editDialogues(player, npc));
-    const form = new ModalFormData().title("编辑首页按钮名称")
-        .textField(`首页按钮名称(最多${LIMITS.buttonTextLength}字)`, "输入首页按钮文字", { defaultValue: dialogue.homepageLabel });
+    const form = new ModalFormData().title("首页按钮")
+        .textField(`首页按钮（/n换行）`, "按钮", { defaultValue: encodeTextFieldNewlines(dialogue.homepageLabel) });
     const result = await form.show(player).catch((error) => { handleFormError(player, error); return null; });
     if (result && !result.canceled) {
-        const homepageLabel = String(result.formValues[0] ?? "").trim().slice(0, LIMITS.buttonTextLength);
+        const homepageLabel = decodeTextFieldNewlines(result.formValues[0]).trim().slice(0, LIMITS.buttonTextLength);
         if (homepageLabel) {
             dialogue.homepageLabel = homepageLabel;
             saveNpc(npc, data);
@@ -251,15 +331,19 @@ async function editHomepageLabel(player, npc, dialogueId) {
     openLater(() => editDialogueNode(player, npc, dialogueId));
 }
 
-async function editDialogueText(player, npc, dialogueId) {
+async function editDialogueText(player, npc, dialogueId, draftText = null, longTextMode = null) {
     const data = loadNpc(npc);
     const dialogue = getDialogue(data, dialogueId);
     if (!dialogue) return openLater(() => editDialogues(player, npc));
-    const form = new ModalFormData().title("编辑对话内容")
-        .textField(`对话内容(最多${LIMITS.dialogueTextLength}字)`, "输入对话", { defaultValue: dialogue.text });
+    const value = draftText ?? dialogue.text;
+    const useLongTextMode = longTextMode ?? isLongTextMode(value);
+    const form = new ModalFormData().title("节点内容");
+    addLongTextEditor(form, "内容", value, LIMITS.dialogueTextLength, useLongTextMode);
     const result = await form.show(player).catch((error) => { handleFormError(player, error); return null; });
     if (result && !result.canceled) {
-        const text = String(result.formValues[0] ?? "").trim();
+        const nextLongTextMode = readLongTextMode(result.formValues, 0);
+        const text = readLongTextEditor(result.formValues, 0, LIMITS.dialogueTextLength, useLongTextMode);
+        if (nextLongTextMode !== useLongTextMode) return refreshLongTextEditor(() => editDialogueText(player, npc, dialogueId, text, nextLongTextMode));
         if (text && text.length <= LIMITS.dialogueTextLength) {
             dialogue.text = text;
             saveNpc(npc, data);
@@ -288,16 +372,16 @@ async function editDialogueButton(player, npc, dialogueId, buttonIndex) {
     const commandIndex = Math.max(0, getCommandIndex(data, button) + 1);
     const form = new ModalFormData()
         .title(`编辑按钮 ${buttonIndex + 1}`)
-        .textField(`按钮文字(最多${LIMITS.buttonTextLength}字)`, "输入按钮文字", { defaultValue: button.text })
+        .textField(`按钮文字（/n换行）`, "按钮", { defaultValue: encodeTextFieldNewlines(button.text) })
         .dropdown("下一关联", links, { defaultValueIndex: linkIndex })
-        .dropdown("执行指令(选填)", commands, { defaultValueIndex: commandIndex })
-        .toggle("执行命令后关闭菜单", { defaultValue: button.closeAfterCommand === true });
+        .dropdown("执行指令", commands, { defaultValueIndex: commandIndex })
+        .dropdown("执行后关闭", ["关闭", "保持打开"], { defaultValueIndex: button.closeAfterCommand === true ? 0 : 1 });
     const result = await form.show(player).catch((error) => { handleFormError(player, error); return null; });
     if (result && !result.canceled) {
-        const text = String(result.formValues[0] ?? "").trim().slice(0, LIMITS.buttonTextLength);
+        const text = decodeTextFieldNewlines(result.formValues[0]).trim().slice(0, LIMITS.buttonTextLength);
         const selectedLink = Number(result.formValues[1] ?? 0);
         const selectedCommand = Number(result.formValues[2] ?? 0);
-        const closeAfterCommand = result.formValues[3] === true;
+        const closeAfterCommand = Number(result.formValues[3]) === 0;
         const closeMenu = selectedLink === 1;
         button.text = text || "继续";
         button.nextId = selectedLink > 1 ? data.dialogues[selectedLink - 2].id : null;
@@ -313,7 +397,7 @@ async function editDialogueButton(player, npc, dialogueId, buttonIndex) {
 
 async function deleteDialogueNode(player, npc, dialogueId) {
     const data = loadNpc(npc);
-    const form = new MessageFormData().title("删除对话节点").body("关联到此节点的按钮会自动变为结束对话。")
+    const form = new MessageFormData().title("删除节点").body("关联按钮会结束。")
         .button1("删除").button2("取消");
     const result = await form.show(player).catch((error) => { handleFormError(player, error); return null; });
     if (result && !result.canceled && result.selection === 0) {
@@ -326,9 +410,9 @@ async function editStoryMode(player, npc) {
     const data = loadNpc(npc);
     const form = new ActionFormData()
         .title("编辑剧情模式")
-        .body(`当前模式: ${MODE_LABELS[data.dialogueMode]}\n剧情文本 ${data.storyLines.length}/${LIMITS.maxDialogues}\n剧情模式不会显示任何选择按钮，只按顺序播放独白。`)
-        .button(data.storyLines.length < LIMITS.maxDialogues ? "添加剧情文本" : "已达上限");
-    data.storyLines.forEach((line, index) => form.button(`${index + 1}. ${line.slice(0, 18)}`));
+        .body(`模式: ${MODE_LABELS[data.dialogueMode]}\n文本: ${data.storyLines.length}/${LIMITS.maxDialogues}`)
+        .button(data.storyLines.length < LIMITS.maxDialogues ? "添加文本" : "已达上限");
+    data.storyLines.forEach((line, index) => form.button(`${index + 1}. ${previewText(line)}`));
     form.button("返回");
     const result = await form.show(player).catch((error) => { handleFormError(player, error); return null; });
     if (!result || result.canceled) return openLater(() => openEditor(player, npc));
@@ -341,18 +425,22 @@ async function editStoryMode(player, npc) {
     openLater(() => openEditor(player, npc));
 }
 
-async function editStoryLine(player, npc, lineIndex) {
+async function editStoryLine(player, npc, lineIndex, draftText = null, longTextMode = null) {
     const data = loadNpc(npc);
     const isNew = lineIndex < 0;
     const oldText = isNew ? "" : data.storyLines[lineIndex];
+    const value = draftText ?? oldText ?? "";
+    const useLongTextMode = longTextMode ?? isLongTextMode(value);
     const form = new ModalFormData()
-        .title(isNew ? "添加剧情文本" : `编辑剧情文本 ${lineIndex + 1}`)
-        .textField(`独白文本(最多${LIMITS.storyLineLength}字)`, "输入 NPC 单方面剧情文本", { defaultValue: oldText ?? "" })
-        .toggle("删除此文本", { defaultValue: false });
+        .title(isNew ? "添加文本" : `文本 ${lineIndex + 1}`);
+    addLongTextEditor(form, "独白", value, LIMITS.storyLineLength, useLongTextMode)
+        .dropdown("删除此文本", ["保留", "删除"], { defaultValueIndex: 0 });
     const result = await form.show(player).catch((error) => { handleFormError(player, error); return null; });
     if (result && !result.canceled) {
-        const text = String(result.formValues[0] ?? "").trim().slice(0, LIMITS.storyLineLength);
-        const remove = result.formValues[1] === true;
+        const nextLongTextMode = readLongTextMode(result.formValues, 0);
+        const text = readLongTextEditor(result.formValues, 0, LIMITS.storyLineLength, useLongTextMode);
+        const remove = Number(result.formValues[longTextControlCount(LIMITS.storyLineLength, useLongTextMode)]) === 1;
+        if (nextLongTextMode !== useLongTextMode) return refreshLongTextEditor(() => editStoryLine(player, npc, lineIndex, text, nextLongTextMode));
         const storyLines = [...data.storyLines];
         if (!isNew && remove) storyLines.splice(lineIndex, 1);
         else if (text) {
@@ -367,7 +455,7 @@ async function editStoryLine(player, npc, lineIndex) {
 async function editCommands(player, npc) {
     const data = loadNpc(npc);
     const form = new ActionFormData().title("编辑指令库")
-        .body(`已配置 ${data.commands.length}/${LIMITS.maxCommands} 条指令\n按钮可选择其中任意一条。`)
+        .body(`指令: ${data.commands.length}/${LIMITS.maxCommands}`)
         .button(data.commands.length < LIMITS.maxCommands ? "添加指令" : "已达上限")
         .button(data.commands.length < LIMITS.maxCommands ? "预设交易" : "已达上限")
         .button("编辑交易方案")
@@ -383,12 +471,12 @@ async function editCommands(player, npc) {
 
 async function addCommand(player, npc, data) {
     const form = new ModalFormData().title("添加指令")
-        .textField(`指令(最多${LIMITS.commandLength}字)`, "可用 {player} 代指点击玩家", { defaultValue: "say 欢迎 {player}" })
-        .textField(`说明(最多${LIMITS.descLength}字)`, "仅供编辑者识别", { defaultValue: "欢迎消息" });
+        .textField(`指令`, "指令", { defaultValue: "say 欢迎 {player}" })
+        .textField(`说明`, "说明", { defaultValue: "欢迎消息" });
     const result = await form.show(player).catch((error) => { handleFormError(player, error); return null; });
     if (!result || result.canceled) return openLater(() => editCommands(player, npc));
     const command = String(result.formValues[0] ?? "").trim().replace(/^\//, "");
-    const description = String(result.formValues[1] ?? "").trim().slice(0, LIMITS.descLength) || command;
+    const description = decodeTextFieldNewlines(result.formValues[1]).trim().slice(0, LIMITS.descLength) || command;
     const check = validateCommand(command);
     if (!check.ok) {
         player.sendMessage(`指令被拒绝: ${check.reason}`);
@@ -430,11 +518,11 @@ async function selectPresetTrade(player, npc, data) {
         .map((entry, index) => ({ entry, index }))
         .filter(({ entry }) => entry.command.startsWith(TRADE_PREFIX));
     if (!trades.length) {
-        player.sendMessage("还没有预设交易方案。");
+        player.sendMessage("暂无交易方案。");
         return openLater(() => editCommands(player, npc));
     }
     const form = new ActionFormData().title("编辑交易方案");
-    trades.forEach(({ entry }) => form.button(entry.description));
+    trades.forEach(({ entry }) => form.button(displayText(entry.description)));
     form.button("返回");
     const result = await form.show(player).catch((error) => { handleFormError(player, error); return null; });
     if (!result || result.canceled || result.selection >= trades.length) return openLater(() => editCommands(player, npc));
@@ -446,16 +534,16 @@ async function editPresetTrade(player, npc, data, commandIndex) {
     const existingTrade = existing?.command.startsWith(TRADE_PREFIX)
         ? decodeTrade(existing.command.slice(TRADE_PREFIX.length)) : null;
     const form = new ModalFormData().title("预设交易")
-        .textField("收取物品", "minecraft:diamond*3，minecraft:emerald*2", { defaultValue: existingTrade ? encodeTrade(existingTrade.costs) : "minecraft:diamond*1" })
-        .textField("获得物品", "minecraft:apple*2,minecraft:bread*1", { defaultValue: existingTrade ? encodeTrade(existingTrade.rewards) : "minecraft:apple*1" })
-        .textField(`说明(最多${LIMITS.descLength}字)`, "仅供编辑者识别", { defaultValue: existing?.description ?? "钻石换苹果" });
+        .textField("收取", "minecraft:diamond*1", { defaultValue: existingTrade ? encodeTrade(existingTrade.costs) : "minecraft:diamond*1" })
+        .textField("获得", "minecraft:apple*1", { defaultValue: existingTrade ? encodeTrade(existingTrade.rewards) : "minecraft:apple*1" })
+        .textField(`说明`, "说明", { defaultValue: existing?.description ?? "钻石换苹果" });
     const result = await form.show(player).catch((error) => { handleFormError(player, error); return null; });
     if (!result || result.canceled) return openLater(() => editCommands(player, npc));
     const costs = parseTradeItems(result.formValues[0]);
     const rewards = parseTradeItems(result.formValues[1]);
-    const description = String(result.formValues[2] ?? "").trim().slice(0, LIMITS.descLength) || "预设交易";
+    const description = decodeTextFieldNewlines(result.formValues[2]).trim().slice(0, LIMITS.descLength) || "预设交易";
     if (!costs || !rewards) {
-        player.sendMessage("交易配置无效：使用 物品ID*数量，并用中文或英文逗号分隔。");
+        player.sendMessage("交易配置无效。");
     } else {
         const command = `${TRADE_PREFIX}${encodeTrade(costs)}|${encodeTrade(rewards)}`;
         const commands = [...data.commands];
@@ -470,7 +558,7 @@ async function editPresetTrade(player, npc, data, commandIndex) {
 async function deleteCommand(player, npc, data) {
     if (!data.commands.length) return openLater(() => editCommands(player, npc));
     const form = new ActionFormData().title("删除指令");
-    data.commands.forEach((command, index) => form.button(`${index + 1}. ${command.description}`));
+    data.commands.forEach((command, index) => form.button(`${index + 1}. ${displayText(command.description)}`));
     form.button("返回");
     const result = await form.show(player).catch((error) => { handleFormError(player, error); return null; });
     if (result && !result.canceled && result.selection < data.commands.length) {
@@ -531,20 +619,22 @@ export async function openDialogue(player, npc) {
 
 function formatStoryBody(data, index) {
     const total = data.storyLines.length;
-    const text = data.storyLines[index] ?? "";
+    const text = displayText(data.storyLines[index] ?? "");
     return `§8━━━━━━━━━━━━━━§r\n§l${data.name}§r\n\n${text}\n\n§8━━━━━━━━━━━━━━§r\n§7${index + 1}/${total} · 点击“继续”推进剧情§r`;
 }
 
 async function showStoryMode(player, npc, index) {
     const data = loadNpc(npc);
     if (!data.storyLines.length) {
-        player.sendMessage("这个 NPC 没有可播放的剧情文本。");
+        player.sendMessage("暂无剧情文本。");
         return;
     }
     const safeIndex = Math.max(0, Math.min(index, data.storyLines.length - 1));
+    const storyBody = formatStoryBody(data, safeIndex);
     const form = new ActionFormData()
         .title("剧情")
-        .body(formatStoryBody(data, safeIndex))
+        .body(storyBody);
+    addBottomButtonSpacer(form, 1, storyBody)
         .button(safeIndex < data.storyLines.length - 1 ? "继续" : "结束");
     const result = await form.show(player).catch((error) => { handleFormError(player, error); return null; });
     if (!result || result.canceled) return;
@@ -555,12 +645,13 @@ async function showDialogueHome(player, npc) {
     const data = loadNpc(npc);
     const visibleNodes = data.dialogues.filter((dialogue) => !dialogue.homepageHidden);
     if (!visibleNodes.length) {
-        player.sendMessage("这个 NPC 没有可显示的首页节点。");
+        player.sendMessage("暂无首页节点。");
         return;
     }
-    const homeBody = data.homeDescription || "请选择交互内容";
+    const homeBody = data.homeDescription ? displayText(data.homeDescription) : "请选择交互内容";
     const form = new ActionFormData().title(data.name).body(homeBody);
-    visibleNodes.forEach((dialogue) => form.button(dialogue.homepageLabel));
+    addBottomButtonSpacer(form, visibleNodes.length, homeBody);
+    visibleNodes.forEach((dialogue) => form.button(displayText(dialogue.homepageLabel)));
     const result = await form.show(player).catch((error) => { handleFormError(player, error); return null; });
     if (!result || result.canceled || result.selection >= visibleNodes.length) return;
     const targetId = visibleNodes[result.selection].id;
@@ -574,7 +665,7 @@ function resolveButtonCommand(data, button) {
 
 async function showDialogueNode(player, npc, dialogueId, depth = 0) {
     if (depth >= LIMITS.maxDialogues) {
-        player.sendMessage("[NPC] 对话关联层级过深，已结束。");
+        player.sendMessage("[NPC] 层级过深。");
         return;
     }
     const data = loadNpc(npc);
@@ -583,8 +674,10 @@ async function showDialogueNode(player, npc, dialogueId, depth = 0) {
         openLater(() => showDialogueHome(player, npc));
         return;
     }
-    const form = new ActionFormData().title(data.name).body(dialogue.text);
-    dialogue.buttons.forEach((button) => form.button(button.text));
+    const nodeBody = displayText(dialogue.text);
+    const form = new ActionFormData().title(data.name).body(nodeBody);
+    addBottomButtonSpacer(form, dialogue.buttons.length, nodeBody);
+    dialogue.buttons.forEach((button) => form.button(displayText(button.text)));
     const result = await form.show(player).catch((error) => { handleFormError(player, error); return null; });
     if (!result || result.canceled || result.selection >= dialogue.buttons.length) return;
     const button = dialogue.buttons[result.selection];
