@@ -4,6 +4,8 @@ dist/
 out/
 tools/
 *.mcaddon
+build.ps1
+import.ps1
 
 .vscode/
 .idea/
