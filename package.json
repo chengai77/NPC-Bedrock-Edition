@@ -1,11 +1,11 @@
 {
   "name": "customnpc",
-  "version": "1.1.58",
+  "version": "1.1.61",
   "private": true,
   "description": "自定义NPC基岩版附加包",
   "scripts": {
-    "import": "powershell -ExecutionPolicy Bypass -File ./import.ps1",
-    "build": "powershell -ExecutionPolicy Bypass -File ./build.ps1"
+    "import": "python tools/import_bedrock_pack.py",
+    "build": "python tools/build_mcaddon.py && python tools/import_bedrock_pack.py"
   },
   "devDependencies": {
     "@minecraft/server": "2.8.0",

@@ -223,17 +223,19 @@ async function editDialogues(player, npc) {
         .title("编辑交互模式")
         .body(`模式: ${MODE_LABELS[data.dialogueMode]}\n首页: ${previewText(data.homeDescription, 28) || "未设置"}\n节点: ${data.dialogues.length}/${LIMITS.maxDialogues}`)
         .button("编辑首页描述")
+        .button("编辑首页按钮")
         .button(data.dialogues.length < LIMITS.maxDialogues ? "添加节点" : "已达上限");
     data.dialogues.forEach((dialogue) => form.button(`节点 ${dialogue.id}: ${previewText(dialogue.text)}`));
     form.button("返回");
     const result = await form.show(player).catch((error) => { handleFormError(player, error); return null; });
     if (!result || result.canceled) return openLater(() => openEditor(player, npc));
     if (result.selection === 0) return editHomeDescription(player, npc);
-    if (result.selection === 1) {
+    if (result.selection === 1) return editHomepageButtons(player, npc);
+    if (result.selection === 2) {
         if (data.dialogues.length < LIMITS.maxDialogues) return addDialogue(player, npc, data);
         return openLater(() => editDialogues(player, npc));
     }
-    const nodeIndex = result.selection - 2;
+    const nodeIndex = result.selection - 3;
     if (nodeIndex < data.dialogues.length) return editDialogueNode(player, npc, data.dialogues[nodeIndex].id);
     openLater(() => openEditor(player, npc));
 }
@@ -253,6 +255,22 @@ async function editHomeDescription(player, npc, draftText = null, longTextMode =
         saveNpc(npc, { ...data, homeDescription });
     }
     openLater(() => editDialogues(player, npc));
+}
+
+async function editHomepageButtons(player, npc) {
+    const data = loadNpc(npc);
+    if (!data.dialogues.length) {
+        player.sendMessage("暂无首页按钮。");
+        return openLater(() => editDialogues(player, npc));
+    }
+    const form = new ActionFormData()
+        .title("编辑首页按钮")
+        .body(`节点: ${data.dialogues.length}/${LIMITS.maxDialogues}`);
+    data.dialogues.forEach((dialogue) => form.button(`节点 ${dialogue.id}: ${previewText(dialogue.homepageLabel)}`));
+    form.button("返回");
+    const result = await form.show(player).catch((error) => { handleFormError(player, error); return null; });
+    if (!result || result.canceled || result.selection >= data.dialogues.length) return openLater(() => editDialogues(player, npc));
+    editHomepageLabel(player, npc, data.dialogues[result.selection].id, () => editHomepageButtons(player, npc));
 }
 
 async function addDialogue(player, npc, data, draftHomepageLabel = "", draftText = "", longTextMode = false) {
@@ -309,12 +327,12 @@ async function editDialogueNode(player, npc, dialogueId) {
         return openLater(() => editDialogueNode(player, npc, dialogueId));
     }
     const buttonIndex = result.selection - 4;
-    if (buttonIndex < dialogue.buttons.length) return editDialogueButton(player, npc, dialogueId, buttonIndex);
+    if (buttonIndex < dialogue.buttons.length) return editDialogueButtonMenu(player, npc, dialogueId, buttonIndex);
     if (result.selection === dialogue.buttons.length + 4) return deleteDialogueNode(player, npc, dialogueId);
     openLater(() => editDialogues(player, npc));
 }
 
-async function editHomepageLabel(player, npc, dialogueId) {
+async function editHomepageLabel(player, npc, dialogueId, returnTo = null) {
     const data = loadNpc(npc);
     const dialogue = getDialogue(data, dialogueId);
     if (!dialogue) return openLater(() => editDialogues(player, npc));
@@ -328,7 +346,7 @@ async function editHomepageLabel(player, npc, dialogueId) {
             saveNpc(npc, data);
         }
     }
-    openLater(() => editDialogueNode(player, npc, dialogueId));
+    openLater(returnTo ?? (() => editDialogueNode(player, npc, dialogueId)));
 }
 
 async function editDialogueText(player, npc, dialogueId, draftText = null, longTextMode = null) {
@@ -356,9 +374,26 @@ async function addDialogueButton(player, npc, dialogueId) {
     const data = loadNpc(npc);
     const dialogue = getDialogue(data, dialogueId);
     if (!dialogue) return openLater(() => editDialogues(player, npc));
-    dialogue.buttons.push({ text: "新按钮", nextId: null, command: "", closeAfterCommand: false });
+    dialogue.buttons.push({ text: "新按钮", nextId: null, command: "", closeAfterCommand: true });
     saveNpc(npc, data);
     openLater(() => editDialogueButton(player, npc, dialogueId, dialogue.buttons.length - 1));
+}
+
+async function editDialogueButtonMenu(player, npc, dialogueId, buttonIndex) {
+    const data = loadNpc(npc);
+    const dialogue = getDialogue(data, dialogueId);
+    const button = dialogue?.buttons[buttonIndex];
+    if (!button) return openLater(() => editDialogueNode(player, npc, dialogueId));
+    const form = new ActionFormData()
+        .title(`按钮 ${buttonIndex + 1}`)
+        .body(displayText(button.text))
+        .button("编辑按钮")
+        .button("删除按钮")
+        .button("返回节点");
+    const result = await form.show(player).catch((error) => { handleFormError(player, error); return null; });
+    if (!result || result.canceled || result.selection === 2) return openLater(() => editDialogueNode(player, npc, dialogueId));
+    if (result.selection === 0) return editDialogueButton(player, npc, dialogueId, buttonIndex);
+    confirmDeleteDialogueButton(player, npc, dialogueId, buttonIndex);
 }
 
 async function editDialogueButton(player, npc, dialogueId, buttonIndex) {
@@ -390,6 +425,27 @@ async function editDialogueButton(player, npc, dialogueId, buttonIndex) {
         button.command = closeMenu || !selectedCommandEntry ? "" : selectedCommandEntry.command;
         button.commandId = closeMenu || !selectedCommandEntry ? "" : selectedCommandEntry.id;
         button.closeAfterCommand = closeMenu ? false : closeAfterCommand;
+        saveNpc(npc, data);
+    }
+    openLater(() => editDialogueNode(player, npc, dialogueId));
+}
+
+async function confirmDeleteDialogueButton(player, npc, dialogueId, buttonIndex) {
+    const data = loadNpc(npc);
+    const dialogue = getDialogue(data, dialogueId);
+    const button = dialogue?.buttons[buttonIndex];
+    if (!button) return openLater(() => editDialogueNode(player, npc, dialogueId));
+    const form = new MessageFormData()
+        .title("确认删除按钮")
+        .body(`确定删除「${displayText(button.text)}」吗？`)
+        .button1("确认删除")
+        .button2("取消");
+    const result = await form.show(player).catch((error) => { handleFormError(player, error); return null; });
+    if (result && !result.canceled && result.selection === 0) {
+        dialogue.buttons.splice(buttonIndex, 1);
+        if (!dialogue.buttons.length) {
+            dialogue.buttons.push({ text: "关闭", nextId: null, command: "", closeAfterCommand: false, closeMenu: true });
+        }
         saveNpc(npc, data);
     }
     openLater(() => editDialogueNode(player, npc, dialogueId));
@@ -458,21 +514,23 @@ async function editCommands(player, npc) {
         .body(`指令: ${data.commands.length}/${LIMITS.maxCommands}`)
         .button(data.commands.length < LIMITS.maxCommands ? "添加指令" : "已达上限")
         .button(data.commands.length < LIMITS.maxCommands ? "预设交易" : "已达上限")
+        .button("编辑指令")
         .button("编辑交易方案")
         .button("删除指令")
         .button("返回");
     const result = await form.show(player).catch((error) => { handleFormError(player, error); return null; });
-    if (!result || result.canceled || result.selection === 4) return openLater(() => openEditor(player, npc));
+    if (!result || result.canceled || result.selection === 5) return openLater(() => openEditor(player, npc));
     if (result.selection === 0 && data.commands.length < LIMITS.maxCommands) return addCommand(player, npc, data);
     if (result.selection === 1 && data.commands.length < LIMITS.maxCommands) return addPresetTrade(player, npc, data);
-    if (result.selection === 2) return selectPresetTrade(player, npc, data);
+    if (result.selection === 2) return selectCommand(player, npc, data);
+    if (result.selection === 3) return selectPresetTrade(player, npc, data);
     deleteCommand(player, npc, data);
 }
 
 async function addCommand(player, npc, data) {
     const form = new ModalFormData().title("添加指令")
-        .textField(`指令`, "指令", { defaultValue: "say 欢迎 {player}" })
-        .textField(`说明`, "说明", { defaultValue: "欢迎消息" });
+        .textField("指令", "输入指令", { defaultValue: "say 欢迎 {player}" })
+        .textField("说明", "输入说明", { defaultValue: "欢迎消息" });
     const result = await form.show(player).catch((error) => { handleFormError(player, error); return null; });
     if (!result || result.canceled) return openLater(() => editCommands(player, npc));
     const command = String(result.formValues[0] ?? "").trim().replace(/^\//, "");
@@ -487,6 +545,43 @@ async function addCommand(player, npc, data) {
         });
     }
     openLater(() => editCommands(player, npc));
+}
+
+async function selectCommand(player, npc, data) {
+    const commands = data.commands
+        .map((entry, index) => ({ entry, index }))
+        .filter(({ entry }) => !entry.command.startsWith(TRADE_PREFIX));
+    if (!commands.length) {
+        player.sendMessage("暂无普通指令。");
+        return openLater(() => editCommands(player, npc));
+    }
+    const form = new ActionFormData().title("编辑指令");
+    commands.forEach(({ entry, index }) => form.button(`${index + 1}. ${displayText(entry.description)}`));
+    form.button("返回");
+    const result = await form.show(player).catch((error) => { handleFormError(player, error); return null; });
+    if (!result || result.canceled || result.selection >= commands.length) return openLater(() => editCommands(player, npc));
+    editCommand(player, npc, data, commands[result.selection].index);
+}
+
+async function editCommand(player, npc, data, commandIndex) {
+    const existing = data.commands[commandIndex];
+    if (!existing || existing.command.startsWith(TRADE_PREFIX)) return openLater(() => editCommands(player, npc));
+    const form = new ModalFormData().title("编辑指令")
+        .textField("指令", "输入指令", { defaultValue: existing.command })
+        .textField("说明", "输入说明", { defaultValue: encodeTextFieldNewlines(existing.description) });
+    const result = await form.show(player).catch((error) => { handleFormError(player, error); return null; });
+    if (!result || result.canceled) return openLater(() => selectCommand(player, npc, data));
+    const command = String(result.formValues[0] ?? "").trim().replace(/^\//, "");
+    const description = decodeTextFieldNewlines(result.formValues[1]).trim().slice(0, LIMITS.descLength) || command;
+    const check = validateCommand(command);
+    if (!check.ok) {
+        player.sendMessage(`指令被拒绝: ${check.reason}`);
+        return openLater(() => editCommand(player, npc, data, commandIndex));
+    }
+    const commands = [...data.commands];
+    commands[commandIndex] = { ...existing, command, description };
+    saveNpc(npc, { ...data, commands });
+    openLater(() => selectCommand(player, npc, { ...data, commands }));
 }
 
 function parseTradeItems(value) {
@@ -561,15 +656,28 @@ async function deleteCommand(player, npc, data) {
     data.commands.forEach((command, index) => form.button(`${index + 1}. ${displayText(command.description)}`));
     form.button("返回");
     const result = await form.show(player).catch((error) => { handleFormError(player, error); return null; });
-    if (result && !result.canceled && result.selection < data.commands.length) {
-        const commandId = data.commands[result.selection].id;
+    if (!result || result.canceled || result.selection >= data.commands.length) return openLater(() => editCommands(player, npc));
+    confirmDeleteCommand(player, npc, data.commands[result.selection].id);
+}
+
+async function confirmDeleteCommand(player, npc, commandId) {
+    const data = loadNpc(npc);
+    const command = data.commands.find((entry) => entry.id === commandId);
+    if (!command) return openLater(() => editCommands(player, npc));
+    const form = new MessageFormData()
+        .title("确认删除指令")
+        .body(`确定删除「${displayText(command.description)}」吗？\n关联此指令的按钮将不再执行指令。`)
+        .button1("确认删除")
+        .button2("取消");
+    const result = await form.show(player).catch((error) => { handleFormError(player, error); return null; });
+    if (result && !result.canceled && result.selection === 0) {
         const dialogues = data.dialogues.map((dialogue) => ({
             ...dialogue,
             buttons: dialogue.buttons.map((button) => button.commandId === commandId
                 ? { ...button, command: "", commandId: "" }
                 : button)
         }));
-        saveNpc(npc, { ...data, dialogues, commands: data.commands.filter((_, index) => index !== result.selection) });
+        saveNpc(npc, { ...data, dialogues, commands: data.commands.filter((entry) => entry.id !== commandId) });
     }
     openLater(() => editCommands(player, npc));
 }

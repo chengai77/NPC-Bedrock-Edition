@@ -7,7 +7,7 @@
 | 项目 | 内容 |
 | --- | --- |
 | 模组名称 | 自定义NPC |
-| 附加包版本 | 1.1.52 |
+| 附加包版本 | 1.1.61 |
 | 最低引擎版本 | 1.26.10 |
 | Script API | @minecraft/server 2.8.0 |
 | UI API | @minecraft/server-ui 2.1.0 |
