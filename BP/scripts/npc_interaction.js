@@ -4,10 +4,8 @@ import { openEditor, openDialogue } from "./npc_forms.js";
 import { initializeNpc } from "./npc_repository.js";
 
 const NPC_ID = "customnpc:npc";
-// 调试开关
 const DEBUG = false;
 
-// 创造模式判断
 function isCreative(player) {
     try {
         return player.getGameMode() === GameMode.Creative;
@@ -16,21 +14,16 @@ function isCreative(player) {
     }
 }
 
-// 设置交互监听
 export function setupInteraction() {
     world.beforeEvents.playerInteractWithEntity.subscribe((event) => {
         const { player, target } = event;
-        // 非本实体放行
         if (!target || target.typeId !== NPC_ID) return;
 
         if (DEBUG) player.sendMessage("NPC interact received");
 
-        // 取消默认交互
         event.cancel = true;
-        // 延迟打开UI
         system.run(() => {
             if (DEBUG) player.sendMessage("NPC UI dispatch");
-            // 校验实体有效性
             if (!target.isValid) {
                 if (DEBUG) player.sendMessage("NPC target invalid");
                 return;

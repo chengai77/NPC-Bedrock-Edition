@@ -1,3 +1,4 @@
 item.customnpc:npc_spawn_egg.name=NPC
+item.customnpc:wooden_wand.name=Wooden Wand
 item.spawn_egg.entity.customnpc:npc.name=NPC
 entity.customnpc:npc.name=NPC

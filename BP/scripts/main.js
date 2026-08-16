@@ -1,6 +1,7 @@
 import { world, system } from "@minecraft/server";
 import { setupInteraction } from "./npc_interaction.js";
 import { initializeNpc, migrateNpc } from "./npc_repository.js";
+import { setupBuilderCommands } from "./builder_commands.js";
 
 const NPC_ID = "customnpc:npc";
 
@@ -11,6 +12,7 @@ function syncNpc(entity) {
 }
 
 setupInteraction();
+setupBuilderCommands();
 
 world.beforeEvents.entityHurt.subscribe((event) => {
     const npc = event.hurtEntity;

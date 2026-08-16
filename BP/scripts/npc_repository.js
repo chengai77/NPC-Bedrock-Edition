@@ -176,7 +176,6 @@ export function validateNpcData(data) {
     const safe = { ...DEFAULTS };
     if (data && typeof data === "object") {
         if (typeof data.skinId === "number") safe.skinId = clampSkin(data.skinId);
-        // armModel由skinId派生
         safe.armModel = getArmModel(safe.skinId);
         if (typeof data.name === "string" && data.name.trim()) {
             safe.name = clampStr(data.name.trim(), LIMITS.nameLength);
@@ -232,7 +231,6 @@ export function validateNpcData(data) {
     } else {
         safe.armModel = getArmModel(safe.skinId);
     }
-    // 锁定皮肤固定名
     if (isNameLocked(safe.skinId)) {
         const fixed = getFixedName(safe.skinId);
         if (fixed) safe.name = fixed;
@@ -246,7 +244,6 @@ export function loadNpc(entity) {
     const data = {
         name: getText(entity, KEYS.name, DEFAULTS.name),
         skinId,
-        // armModel由skinId派生
         armModel: getArmModel(skinId),
         dialogueMode: normalizeDialogueMode(getText(entity, KEYS.dialogueMode, DEFAULTS.dialogueMode)),
         homeDescription: getText(entity, KEYS.homeDescription, DEFAULTS.homeDescription),
@@ -272,12 +269,9 @@ export function saveNpc(entity, data) {
     setJson(entity, KEYS.commands, safe.commands);
     entity.setDynamicProperty(KEYS.aiEnabled, safe.aiEnabled);
     entity.setDynamicProperty(KEYS.invulnerable, safe.invulnerable);
-    // 同步客户端属性
     entity.setProperty("customnpc:skin_id", safe.skinId);
     entity.setProperty("customnpc:arm_model", safe.armModel);
-    // 同步AI组件组状态
     syncAiComponent(entity, safe.aiEnabled);
-    // 同步显示名称
     entity.nameTag = safe.name;
     return safe;
 }
@@ -287,7 +281,6 @@ function syncAiComponent(entity, aiEnabled) {
     try {
         entity.triggerEvent(aiEnabled ? "customnpc:enable_ai" : "customnpc:disable_ai");
     } catch {
-        // 事件失败忽略
     }
 }
 
@@ -296,16 +289,13 @@ export function initializeNpc(entity) {
     if (entity.typeId !== "customnpc:npc") return;
     const skinId = clampSkin(getNumber(entity, KEYS.skinId, -1));
 
-    // 名称缺失或锁定
     let name = getText(entity, KEYS.name, "");
     if (!name || isNameLocked(skinId)) {
         name = getFixedName(skinId) ?? DEFAULTS.name;
         entity.setDynamicProperty(KEYS.name, name);
     }
 
-    // 写入默认值
     if (entity.getDynamicProperty(KEYS.skinId) === undefined) entity.setDynamicProperty(KEYS.skinId, skinId);
-    // armModel由skinId派生
     entity.setDynamicProperty(KEYS.armModel, getArmModel(skinId));
     if (entity.getDynamicProperty(KEYS.dialogueMode) === undefined) entity.setDynamicProperty(KEYS.dialogueMode, DEFAULTS.dialogueMode);
     if (entity.getDynamicProperty(KEYS.homeDescription) === undefined) entity.setDynamicProperty(KEYS.homeDescription, DEFAULTS.homeDescription);
@@ -315,12 +305,10 @@ export function initializeNpc(entity) {
     if (entity.getDynamicProperty(KEYS.aiEnabled) === undefined) entity.setDynamicProperty(KEYS.aiEnabled, DEFAULTS.aiEnabled);
     if (entity.getDynamicProperty(KEYS.invulnerable) === undefined) entity.setDynamicProperty(KEYS.invulnerable, DEFAULTS.invulnerable);
 
-    // 同步客户端属性
     entity.setProperty("customnpc:skin_id", skinId);
     entity.setProperty("customnpc:arm_model", getArmModel(skinId));
     entity.nameTag = name;
 
-    // 恢复AI状态
     const aiEnabled = getFlag(entity, KEYS.aiEnabled, DEFAULTS.aiEnabled);
     syncAiComponent(entity, aiEnabled);
 }
@@ -333,19 +321,15 @@ export function migrateNpc(entity) {
     const storedArm = getNumber(entity, KEYS.armModel, -1);
     let migrated = false;
 
-    // 修正armModel
     if (storedArm !== expectedArm) {
         entity.setDynamicProperty(KEYS.armModel, expectedArm);
         migrated = true;
     }
-    // 同步客户端属性
     try {
         entity.setProperty("customnpc:skin_id", skinId);
         entity.setProperty("customnpc:arm_model", expectedArm);
     } catch {
-        // 属性设置失败忽略
     }
-    // 锁定皮肤固定名
     if (isNameLocked(skinId)) {
         const fixed = getFixedName(skinId);
         const currentName = getText(entity, KEYS.name, "");
@@ -355,11 +339,9 @@ export function migrateNpc(entity) {
             migrated = true;
         }
     } else {
-        // 同步nameTag
         const name = getText(entity, KEYS.name, DEFAULTS.name);
         if (entity.nameTag !== name) entity.nameTag = name;
     }
-    // 恢复AI组件组
     const aiEnabled = getFlag(entity, KEYS.aiEnabled, DEFAULTS.aiEnabled);
     syncAiComponent(entity, aiEnabled);
     return migrated;

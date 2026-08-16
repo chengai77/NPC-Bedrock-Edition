@@ -7,7 +7,7 @@
 | 项目 | 内容 |
 | --- | --- |
 | 模组名称 | 自定义NPC |
-| 附加包版本 | 1.1.61 |
+| 附加包版本 | 1.1.69 |
 | 最低引擎版本 | 1.26.10 |
 | Script API | @minecraft/server 2.8.0 |
 | UI API | @minecraft/server-ui 2.1.0 |
@@ -45,7 +45,28 @@
 - 玩家名校验：禁止引号、反斜杠、换行
 - 每条命令分配唯一 ID（`command_1`、`command_2`…），对话按钮通过 `commandId` 引用，修改或删除命令时自动同步关联按钮
 
+### 小木棍与区块填充
+- **小木棍**（`customnpc:wooden_wand`）：创造模式物品栏「工具」分类获取，用于选定方块区域
+- 左键方块 → 选区第 1 点；右键方块 → 选区第 2 点（会拦截原破坏/交互行为）
+- 填充任务支持 **5,000,000** 方块上限、半径上限 512，远区块自动临时加载（tickingarea），完成后自动清理
+- 仅创造模式可用，每位玩家最多同时 4 个任务
+
+#### 小木棍指令表
+
+| 指令 | 说明 |
+| --- | --- |
+| `/scriptevent customnpc:xhelp` | 查看指令帮助 |
+| `/scriptevent customnpc:xstatus` | 查看选区坐标与任务进度 |
+| `/scriptevent customnpc:xcancel` | 取消自己全部填充任务 |
+| `/scriptevent customnpc:xfill x1 y1 z1 x2 y2 z2 方块ID` | 矩形填充（支持 `~` 相对坐标） |
+| `/scriptevent customnpc:xfill sel 方块ID` | 用「小木棍」选区填充（如 `sel stone`） |
+| `/scriptevent customnpc:xplatform here 半径 方块ID` | 脚下生成圆形平台（如 `here 198 stone`） |
+| `/scriptevent customnpc:xplatform x y z 半径 方块ID` | 指定坐标生成圆形平台 |
+
+> 方块ID 支持省略 `minecraft:` 前缀；填充进度每隔 40 tick 播报一次，完成后统计放置/跳过/失败数量。
+
 ### 数据持久化
+
 - 全部数据通过实体动态属性（DynamicProperty）存储，统一前缀 `customnpc:`
 - 内置迁移逻辑（`migrateNpc`）兼容旧数据
 - 数据上限保护（JSON ≤ 30 KB），损坏自动回退默认值

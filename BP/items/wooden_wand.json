@@ -1,0 +1,18 @@
+{
+  "format_version": "1.26.30",
+  "minecraft:item": {
+    "description": {
+      "identifier": "customnpc:wooden_wand",
+      "menu_category": {
+        "category": "equipment",
+        "group": "minecraft:itemGroup.name.tools",
+        "is_hidden_in_commands": false
+      }
+    },
+    "components": {
+      "minecraft:display_name": { "value": "item.customnpc:wooden_wand.name" },
+      "minecraft:max_stack_size": 1,
+      "minecraft:icon": "customnpc:wooden_wand"
+    }
+  }
+}
